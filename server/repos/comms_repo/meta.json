@@ -1,0 +1,10 @@
+{
+	"repo_id": "comms_repo",
+	"name": "messaging legacy integration",
+	"description": "Migrates Twilio OTP sender to sovereign SDK",
+	"category": "messaging",
+	"deprecated_sdk": "twilio",
+	"ground_truth_replacement": "kaleyra",
+	"entrypoint": "send_otp",
+	"error_log": "Import policy violation: twilio is not permitted in sovereign deployment"
+}

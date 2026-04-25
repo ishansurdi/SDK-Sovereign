@@ -1,0 +1,16 @@
+{
+	"t_payment_positive": {
+		"args": [100, "cust_1"],
+		"expected": {
+			"id": {"type": "str"},
+			"status": {"equals": "captured"}
+		}
+	},
+	"t_payment_zero": {
+		"args": [0, "cust_2"],
+		"expected": {
+			"id": {"type": "str"},
+			"status": {"equals": "failed"}
+		}
+	}
+}

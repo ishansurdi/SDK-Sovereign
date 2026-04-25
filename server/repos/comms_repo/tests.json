@@ -1,0 +1,16 @@
+{
+	"t_sms_primary": {
+		"args": ["+919900000001", "123456"],
+		"expected": {
+			"sid": {"type": "str"},
+			"status": {"equals": "sent"}
+		}
+	},
+	"t_sms_secondary": {
+		"args": ["+919900000002", "654321"],
+		"expected": {
+			"sid": {"type": "str"},
+			"status": {"equals": "sent"}
+		}
+	}
+}

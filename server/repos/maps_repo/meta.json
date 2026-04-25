@@ -1,0 +1,10 @@
+{
+	"repo_id": "maps_repo",
+	"name": "maps geocoding legacy integration",
+	"description": "Migrates Google Maps geocoder to sovereign SDK",
+	"category": "maps",
+	"deprecated_sdk": "googlemaps",
+	"ground_truth_replacement": "mmi_sdk",
+	"entrypoint": "address_to_coords",
+	"error_log": "Import policy violation: googlemaps is not permitted in sovereign deployment"
+}
