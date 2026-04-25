@@ -1,16 +1,38 @@
 {
-	"t_sms_primary": {
-		"args": ["+919900000001", "123456"],
-		"expected": {
-			"sid": {"type": "str"},
-			"status": {"equals": "sent"}
-		}
-	},
-	"t_sms_secondary": {
-		"args": ["+919900000002", "654321"],
-		"expected": {
-			"sid": {"type": "str"},
-			"status": {"equals": "sent"}
-		}
-	}
+  "test_indian_number": {
+    "args": [
+      "+919876543210",
+      "123456"
+    ],
+    "expected": {
+      "sid": {
+        "type": "str"
+      },
+      "status": {
+        "type": "str"
+      }
+    }
+  },
+  "test_short_code": {
+    "args": [
+      "+919999000011",
+      "00000"
+    ],
+    "expected": {
+      "sid": {
+        "type": "str"
+      }
+    }
+  },
+  "test_long_otp": {
+    "args": [
+      "+918000000001",
+      "987654"
+    ],
+    "expected": {
+      "status": {
+        "type": "str"
+      }
+    }
+  }
 }

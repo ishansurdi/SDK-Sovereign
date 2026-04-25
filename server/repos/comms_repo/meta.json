@@ -1,10 +1,8 @@
 {
-	"repo_id": "comms_repo",
-	"name": "messaging legacy integration",
-	"description": "Migrates Twilio OTP sender to sovereign SDK",
-	"category": "messaging",
-	"deprecated_sdk": "twilio",
-	"ground_truth_replacement": "kaleyra",
-	"entrypoint": "send_otp",
-	"error_log": "Import policy violation: twilio is not permitted in sovereign deployment"
+  "repo_id": "comms_repo",
+  "deprecated_sdk": "twilio",
+  "ground_truth_replacement": "kaleyra",
+  "category": "messaging",
+  "entrypoint": "send_otp",
+  "error_log": "TwilioRestException: HTTP 451 Unavailable For Legal Reasons. Cross-border SMS gateway disabled."
 }

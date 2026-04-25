@@ -1,10 +1,8 @@
 {
-	"repo_id": "payments_repo",
-	"name": "payments legacy integration",
-	"description": "Migrates Stripe payment charge flow to sovereign SDK",
-	"category": "payments",
-	"deprecated_sdk": "stripe",
-	"ground_truth_replacement": "razorpay",
-	"entrypoint": "charge_customer",
-	"error_log": "Import policy violation: stripe is not permitted in sovereign deployment"
+  "repo_id": "payments_repo",
+  "deprecated_sdk": "stripe",
+  "ground_truth_replacement": "razorpay",
+  "category": "payments",
+  "entrypoint": "charge_customer",
+  "error_log": "ImportError: stripe SDK suspended for IN region (sanctions notice 2026-04). All inbound traffic blocked at gateway."
 }

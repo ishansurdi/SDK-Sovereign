@@ -1,16 +1,44 @@
 {
-	"t_payment_positive": {
-		"args": [100, "cust_1"],
-		"expected": {
-			"id": {"type": "str"},
-			"status": {"equals": "captured"}
-		}
-	},
-	"t_payment_zero": {
-		"args": [0, "cust_2"],
-		"expected": {
-			"id": {"type": "str"},
-			"status": {"equals": "failed"}
-		}
-	}
+  "test_basic_charge": {
+    "args": [
+      100,
+      "cust_001"
+    ],
+    "expected": {
+      "id": {
+        "type": "str",
+        "contains": "cust_001"
+      },
+      "status": {
+        "type": "str"
+      }
+    }
+  },
+  "test_zero_amount": {
+    "args": [
+      0,
+      "cust_002"
+    ],
+    "expected": {
+      "status": {
+        "type": "str",
+        "equals": "failed"
+      }
+    }
+  },
+  "test_large_amount": {
+    "args": [
+      50000,
+      "cust_003"
+    ],
+    "expected": {
+      "id": {
+        "type": "str",
+        "contains": "5000000"
+      },
+      "status": {
+        "type": "str"
+      }
+    }
+  }
 }

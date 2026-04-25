@@ -1,16 +1,41 @@
 {
-	"t_maps_home": {
-		"args": ["Bengaluru"],
-		"expected": {
-			"lat": {"type": "float"},
-			"lng": {"type": "float"}
-		}
-	},
-	"t_maps_office": {
-		"args": ["Mumbai"],
-		"expected": {
-			"lat": {"type": "float"},
-			"lng": {"type": "float"}
-		}
-	}
+  "test_bangalore": {
+    "args": [
+      "MG Road, Bangalore"
+    ],
+    "expected": {
+      "lat": {
+        "type": "float"
+      },
+      "lng": {
+        "type": "float"
+      }
+    }
+  },
+  "test_mumbai": {
+    "args": [
+      "Marine Drive, Mumbai"
+    ],
+    "expected": {
+      "lat": {
+        "type": "float"
+      },
+      "lng": {
+        "type": "float"
+      }
+    }
+  },
+  "test_chennai": {
+    "args": [
+      "Marina Beach, Chennai"
+    ],
+    "expected": {
+      "lat": {
+        "type": "float"
+      },
+      "lng": {
+        "type": "float"
+      }
+    }
+  }
 }
