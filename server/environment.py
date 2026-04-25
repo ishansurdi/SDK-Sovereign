@@ -7,18 +7,27 @@ import uuid
 from pathlib import Path
 from typing import Dict, List, Optional
 
+try:
+	from openenv.core.env_server.interfaces import Environment
+except ImportError:
+	class Environment:  # type: ignore[no-redef]
+		def __init__(self, *args, **kwargs):
+			pass
+
 from models import ActionType, Role, SDKAction, SDKObservation, SDKState
 from server.rubric import SDKMigrationRubric
 from server.verifier import Verifier
 
 
-class SDKSovereignEnvironment:
+class SDKSovereignEnvironment(Environment[SDKAction, SDKObservation, SDKState]):
 	"""Environment that alternates auditor/lead turns under partial observability."""
 
 	MAX_TURNS = 7
+	SUPPORTS_CONCURRENT_SESSIONS = True
 
 	def __init__(self, repos_root: Optional[Path] = None, seed: int = 0):
 		"""Initialise environment repositories, verifier, and rubric."""
+		super().__init__()
 		repos_root = repos_root or Path(__file__).parent / "repos"
 		self.repos_root = Path(repos_root)
 		self.allowlist_path = Path(__file__).parent / "allowlist.json"
@@ -52,12 +61,19 @@ class SDKSovereignEnvironment:
 			meta["broken_code"] = (directory / "broken.py").read_text()
 			self.repos[meta["repo_id"]] = meta
 
-	def reset(self) -> SDKObservation:
+	def reset(
+		self,
+		seed: Optional[int] = None,
+		episode_id: Optional[str] = None,
+		**kwargs,
+	) -> SDKObservation:
 		"""Start a new episode and return the first auditor observation."""
+		if seed is not None:
+			self._rng.seed(seed)
 		repo_id = self._rng.choice(list(self.repos.keys()))
 		repo = self.repos[repo_id]
 		self._state = SDKState(
-			episode_id=str(uuid.uuid4())[:8],
+			episode_id=episode_id or str(uuid.uuid4())[:8],
 			repo_id=repo_id,
 			deprecated_sdk=repo["deprecated_sdk"],
 			ground_truth_replacement=repo["ground_truth_replacement"],
@@ -65,7 +81,12 @@ class SDKSovereignEnvironment:
 		self._history = []
 		return self._build_observation(Role.AUDITOR.value, last_reward=0.0)
 
-	def step(self, action: SDKAction) -> SDKObservation:
+	def step(
+		self,
+		action: SDKAction,
+		timeout_s: Optional[float] = None,
+		**kwargs,
+	) -> SDKObservation:
 		"""Apply one action and return the next role-masked observation."""
 		if self._state is None:
 			raise ValueError("Call reset() before step().")
@@ -130,6 +151,7 @@ class SDKSovereignEnvironment:
 		next_role = self._next_role() if not done else action.role
 		return self._build_observation(next_role, done=done, last_reward=step_reward, breakdown=breakdown)
 
+	@property
 	def state(self) -> SDKState:
 		"""Return full unmasked environment state."""
 		return self._state
