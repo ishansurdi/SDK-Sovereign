@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openenv-sdk-sovereign"
+version = "0.1.0"
+description = "Multi-agent OpenEnv environment for digital sovereignty SDK migrations."
+readme = "README.md"
+requires-python = ">=3.10,<3.12"
+license = {text = "MIT"}
+authors = [{name = "ishansurdi"}]
+dependencies = [
+	"openenv-core[core] @ https://github.com/meta-pytorch/OpenEnv/archive/refs/tags/v0.2.3.zip",
+	"pydantic>=2.0",
+	"rich>=13.0",
+	"pytest>=8.0",
+]
+
+[project.optional-dependencies]
+training = [
+	"transformers>=4.45",
+	"peft>=0.13",
+	"accelerate>=0.34",
+	"bitsandbytes>=0.43",
+	"torch>=2.4",
+	"trl>=0.12",
+	"datasets>=3.0",
+	"wandb>=0.18",
+]
+analysis = [
+	"matplotlib>=3.8",
+	"pandas>=2.0",
+	"numpy>=1.26",
+	"seaborn>=0.13",
+]
+demo = [
+	"gradio>=4.0",
+	"fastapi>=0.110",
+	"uvicorn>=0.30",
+]
+dev = ["pytest-cov>=4.0"]
+
+[tool.setuptools.packages.find]
+include = ["server*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
