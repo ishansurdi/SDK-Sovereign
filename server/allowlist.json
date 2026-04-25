@@ -1,0 +1,27 @@
+{
+	"allowlist": [
+		"razorpay",
+		"phonepe_sdk",
+		"cashfree",
+		"mmi_sdk",
+		"olamaps",
+		"kaleyra",
+		"msg91",
+		"exotel"
+	],
+	"metadata": {
+		"razorpay": {"category": "payments", "region": "IN"},
+		"phonepe_sdk": {"category": "payments", "region": "IN"},
+		"cashfree": {"category": "payments", "region": "IN"},
+		"mmi_sdk": {"category": "maps", "region": "IN"},
+		"olamaps": {"category": "maps", "region": "IN"},
+		"kaleyra": {"category": "messaging", "region": "IN"},
+		"msg91": {"category": "messaging", "region": "IN"},
+		"exotel": {"category": "messaging", "region": "IN"}
+	},
+	"ground_truth_mapping": {
+		"stripe": "razorpay",
+		"googlemaps": "mmi_sdk",
+		"twilio": "kaleyra"
+	}
+}
