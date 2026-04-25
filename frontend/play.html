@@ -68,6 +68,19 @@
 		color: var(--muted);
 	}
 
+	.badge {
+		display: inline-flex;
+		align-items: center;
+		padding: 6px 10px;
+		border-radius: 999px;
+		background: rgba(15, 118, 110, 0.12);
+		color: var(--accent);
+		font-size: 0.82rem;
+		font-weight: 700;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+	}
+
 	.controls {
 		display: flex;
 		gap: 12px;
@@ -153,8 +166,71 @@
 		font-size: 0.95rem;
 	}
 
+	.issue-card {
+		margin-top: 18px;
+		padding: 18px;
+		border-radius: 18px;
+		background: rgba(255, 255, 255, 0.6);
+		border: 1px solid rgba(31, 27, 22, 0.08);
+	}
+
+	.issue-card h2,
+	.timeline-head h2 {
+		margin: 0 0 10px;
+		font-size: 1.2rem;
+	}
+
+	.issue-grid {
+		display: grid;
+		gap: 10px;
+		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+		margin-top: 14px;
+	}
+
+	.issue-grid strong {
+		display: block;
+		font-size: 0.78rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--accent-2);
+		margin-bottom: 4px;
+	}
+
+	.timeline-head {
+		display: flex;
+		justify-content: space-between;
+		gap: 12px;
+		align-items: center;
+		margin-bottom: 16px;
+	}
+
 	@keyframes rise {
 		to { transform: translateY(0); opacity: 1; }
+	}
+
+	.details {
+		margin-top: 10px;
+		display: grid;
+		gap: 10px;
+	}
+
+	.pill {
+		display: inline-block;
+		padding: 4px 8px;
+		border-radius: 999px;
+		background: rgba(31, 27, 22, 0.08);
+		font-size: 0.8rem;
+		font-family: "Consolas", "Courier New", monospace;
+	}
+
+	pre {
+		margin: 0;
+		padding: 12px;
+		border-radius: 14px;
+		background: #fff;
+		font-size: 0.82rem;
+		overflow-x: auto;
+		border: 1px solid rgba(31, 27, 22, 0.08);
 	}
 </style>
 </head>
@@ -164,8 +240,9 @@
 		<div class="panel">
 			<p style="margin:0; text-transform:uppercase; letter-spacing:0.18em; color:var(--accent-2); font-size:0.78rem;">Phase 9 Demo</p>
 			<h1>SDK-Sovereign<br>Live Negotiation</h1>
+			<div id="agentMode" class="badge">Loading mode</div>
 			<div class="pitch">
-				It's 2026. Your core vendor stack is cut off for Indian users overnight. Auditor sees the sovereign allow-list. Lead sees the broken code. They get seven turns to coordinate a migration under partial information.
+				It's 2026. Your core vendor stack is cut off for Indian users overnight. Auditor sees the sovereign allow-list. Lead sees the broken code. They get seven turns to coordinate on the issue, absorb reward feedback, and ship a migration patch.
 			</div>
 			<div class="controls">
 				<label>
@@ -180,9 +257,14 @@
 			</div>
 			<div id="status" class="status"></div>
 			<div id="meta" class="meta"></div>
+			<div id="issueCard" class="issue-card"></div>
 		</div>
 
 		<div class="panel">
+			<div class="timeline-head">
+				<h2>Agent Discussion</h2>
+				<span class="pill">reasoning + feedback + patching</span>
+			</div>
 			<div id="output"></div>
 		</div>
 	</section>
@@ -190,11 +272,25 @@
 
 <script>
 const base = window.location.origin;
+const agentMode = document.getElementById("agentMode");
 const runButton = document.getElementById("run");
 const repoSelect = document.getElementById("repo");
 const output = document.getElementById("output");
 const status = document.getElementById("status");
 const meta = document.getElementById("meta");
+const issueCard = document.getElementById("issueCard");
+
+bootstrap();
+
+async function bootstrap() {
+	try {
+		const catalog = await fetchJson(`${base}/play/catalog`);
+		renderCatalog(catalog);
+		setAgentMode(catalog.agent_mode);
+	} catch (error) {
+		status.textContent = `Failed to load demo catalog: ${error.message || error}`;
+	}
+}
 
 runButton.addEventListener("click", async () => {
 	runButton.disabled = true;
@@ -202,13 +298,18 @@ runButton.addEventListener("click", async () => {
 	meta.innerHTML = "";
 	try {
 		status.textContent = "Resetting environment...";
-		let observation = await postJson(`${base}/play/reset?repo_id=${encodeURIComponent(repoSelect.value)}`);
+		let response = await postJson(`${base}/play/reset?repo_id=${encodeURIComponent(repoSelect.value)}`);
+		let observation = response.observation;
+		setAgentMode(response.agent_mode);
+		renderIssue(response.issue);
 		renderMeta(observation);
 		status.textContent = "Running agents...";
 
 		for (let turn = 0; turn < 7 && !observation.done; turn += 1) {
 			const next = await postJson(`${base}/play/agent_step`);
-			appendTurn(next.action);
+			setAgentMode(next.agent_mode);
+			renderIssue(next.issue);
+			appendTurn(next.action, next.transcript_entry);
 			observation = next.observation;
 			renderMeta(observation);
 			await sleep(700);
@@ -225,14 +326,23 @@ runButton.addEventListener("click", async () => {
 	}
 });
 
-function appendTurn(action) {
+function appendTurn(action, entry) {
 	const card = document.createElement("div");
 	card.className = `turn ${action.role}`;
-	const detail = action.proposed_sdk || action.rejection_reason || action.hint_response || action.reasoning || (action.patched_code ? "Patch submitted" : "No details");
+	const detail = entry.discussion || action.proposed_sdk || action.rejection_reason || action.hint_response || action.reasoning || (action.patched_code ? "Patch submitted" : "No details");
+	const patchBlock = entry.patch_preview ? `<pre>${escapeHtml(entry.patch_preview)}</pre>` : "";
+	const proposal = entry.proposal ? `<span class="pill">proposal: ${escapeHtml(entry.proposal)}</span>` : "";
+	const approved = entry.approved_replacement ? `<span class="pill">approved: ${escapeHtml(entry.approved_replacement)}</span>` : "";
 	card.innerHTML = `
 		<span class="role">${escapeHtml(action.role.toUpperCase())}</span>
 		<span class="action">${escapeHtml(action.action_type)}</span>
-		<div class="detail">${escapeHtml(detail).slice(0, 280)}</div>
+		<div class="detail">${escapeHtml(detail).slice(0, 360)}</div>
+		<div class="details">
+			<div>${proposal} ${approved}</div>
+			<div><strong>Issue update</strong><br>${escapeHtml(entry.issue_update || "No issue update")}</div>
+			<div><strong>Learning signal</strong><br>${escapeHtml(entry.learning_signal || "No feedback")}</div>
+			${patchBlock}
+		</div>
 	`;
 	output.appendChild(card);
 }
@@ -253,6 +363,62 @@ function renderMeta(observation) {
 		<div>Current proposal: ${escapeHtml(observation.current_proposal || "none")}</div>
 		<div>Approved replacement: ${escapeHtml(observation.approved_replacement || "none")}</div>
 	`;
+}
+
+function renderIssue(issue) {
+	if (!issue || !issue.repo_id) {
+		issueCard.innerHTML = "";
+		return;
+	}
+	issueCard.innerHTML = `
+		<h2>${escapeHtml(issue.issue_title)}</h2>
+		<div>${escapeHtml(issue.issue_summary || "No issue summary")}</div>
+		<div class="issue-grid">
+			<div><strong>Repo</strong>${escapeHtml(issue.repo_id)}</div>
+			<div><strong>Category</strong>${escapeHtml(issue.category || "unknown")}</div>
+			<div><strong>Entrypoint</strong>${escapeHtml(issue.entrypoint || "unknown")}</div>
+			<div><strong>Deprecated SDK</strong>${escapeHtml(issue.deprecated_sdk || "unknown")}</div>
+			<div><strong>Expected replacement</strong>${escapeHtml(issue.target_sdk || "unknown")}</div>
+		</div>
+	`;
+}
+
+function renderCatalog(catalog) {
+	if (!catalog || !Array.isArray(catalog.repos)) {
+		return;
+	}
+	repoSelect.innerHTML = catalog.repos.map((repo) => (
+		`<option value="${escapeHtml(repo.repo_id)}">${escapeHtml(repo.repo_id)} · ${escapeHtml(repo.deprecated_sdk)} to ${escapeHtml(repo.target_sdk)}</option>`
+	)).join("");
+	if (catalog.repos.length > 0) {
+		renderIssue({
+			repo_id: catalog.repos[0].repo_id,
+			category: catalog.repos[0].category,
+			entrypoint: catalog.repos[0].entrypoint,
+			deprecated_sdk: catalog.repos[0].deprecated_sdk,
+			target_sdk: catalog.repos[0].target_sdk,
+			issue_title: `Migrate ${catalog.repos[0].repo_id} off ${catalog.repos[0].deprecated_sdk}`,
+			issue_summary: catalog.repos[0].issue_summary,
+		});
+	}
+	repoSelect.addEventListener("change", () => {
+		const current = catalog.repos.find((repo) => repo.repo_id === repoSelect.value);
+		if (current) {
+			renderIssue({
+				repo_id: current.repo_id,
+				category: current.category,
+				entrypoint: current.entrypoint,
+				deprecated_sdk: current.deprecated_sdk,
+				target_sdk: current.target_sdk,
+				issue_title: `Migrate ${current.repo_id} off ${current.deprecated_sdk}`,
+				issue_summary: current.issue_summary,
+			});
+		}
+	});
+}
+
+function setAgentMode(mode) {
+	agentMode.textContent = mode === "live" ? "Live adapters" : "Rule fallback";
 }
 
 async function postJson(url) {
