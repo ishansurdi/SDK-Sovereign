@@ -2,9 +2,12 @@
 import json
 from pathlib import Path
 
-HF_USER = "ishansurdi"
-ENV_URL = f"https://{HF_USER}-sdk-sovereign.hf.space"
-SPACE_REPO = f"{HF_USER}/SDK-Sovereign"
+HF_USER    = "ishansurdi"
+GH_REPO    = f"{HF_USER}/SDK-Sovereign"          # GitHub repo
+SPACE_REPO = f"{HF_USER}/SDK-Sovereign"           # HF Space (same name)
+ENV_URL    = f"https://{HF_USER}-sdk-sovereign.hf.space"  # live env endpoint
+
+COLAB_BASE = f"https://colab.research.google.com/github/{GH_REPO}/blob/master/notebooks"
 
 def nb(cells):
     return {
@@ -29,11 +32,13 @@ def code(src):
 # ── 01_smoke_test.ipynb ──────────────────────────────────────────────────────
 
 nb01 = nb([
-    md("# 01 — SDK-Sovereign Smoke Test\n\n"
+    md(f"[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]({COLAB_BASE}/01_smoke_test.ipynb)\n\n"
+       "# 01 — SDK-Sovereign Smoke Test\n\n"
        "**Purpose:** Load Qwen 2.5-0.5B with two LoRA adapters, run a smoke episode "
        "against the live HF Space env, verify adapter swap.\n\n"
        "**Runtime:** Colab T4 GPU (free tier) · ~10 min\n\n"
-       "> Before running: set `HF_TOKEN` in **Colab Secrets** (key icon on the left sidebar)"),
+       "> **Before running:** set `HF_TOKEN` in **Colab Secrets** (key icon on the left sidebar). "
+       "Runtime → Change runtime type → T4 GPU."),
 
     code("# Cell 1 — Install dependencies\n"
          "!pip install -q \"unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git\"\n"
@@ -42,15 +47,14 @@ nb01 = nb([
          "!pip install -q wandb huggingface_hub\n"
          "print('✓ Dependencies installed')"),
 
-    code(f"# Cell 2 — Clone and install the SDK-Sovereign env package\n"
+    code(f"# Cell 2 — Clone SDK-Sovereign from GitHub and install\n"
          f"import os, sys\n\n"
-         f"HF_USER   = '{HF_USER}'\n"
-         f"SPACE_REPO = '{SPACE_REPO}'\n"
-         f"ENV_URL    = '{ENV_URL}'\n\n"
-         f"!git clone https://huggingface.co/spaces/{{SPACE_REPO}} sdk_sovereign_pkg\n"
+         f"GH_REPO = '{GH_REPO}'\n"
+         f"ENV_URL = '{ENV_URL}'\n\n"
+         f"!git clone https://github.com/{{GH_REPO}}.git sdk_sovereign_pkg\n"
          f"!pip install -q -e sdk_sovereign_pkg/\n"
          f"sys.path.insert(0, 'sdk_sovereign_pkg')\n"
-         f"print(f'✓ Env package installed from {{SPACE_REPO}}')"),
+         f"print(f'✓ Cloned & installed from github.com/{{GH_REPO}}')"),
 
     code("# Cell 3 — HF auth\n"
          "from google.colab import userdata\n"
@@ -110,17 +114,21 @@ nb01 = nb([
 # ── 02_train_lead.ipynb ──────────────────────────────────────────────────────
 
 nb02 = nb([
-    md("# 02 — Train Lead Adapter (GRPO)\n\n"
+    md(f"[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]({COLAB_BASE}/02_train_lead.ipynb)\n\n"
+       "# 02 — Train Lead Adapter (GRPO)\n\n"
        "**Purpose:** Fine-tune the Lead LoRA adapter using GRPO on rollout data collected "
        "from the live env. Upload trained adapter to HF Hub.\n\n"
        "**Runtime:** Colab T4 · ~3h\n\n"
-       "> Requires notebook 01 to have run in the same session (or re-run cells 1-4 here)."),
+       "> **Before running:** set `HF_TOKEN` + `WANDB_API_KEY` in Colab Secrets. "
+       "Runtime → T4 GPU."),
 
-    code("# Cell 1 — Install (skip if already done in 01)\n"
+    code("# Cell 1 — Install + clone repo\n"
          "!pip install -q \"unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git\"\n"
          "!pip install -q --no-deps \"trl<0.13\" peft accelerate bitsandbytes\n"
          "!pip install -q \"openenv-core[core] @ git+https://github.com/meta-pytorch/OpenEnv@v0.2.3\"\n"
          "!pip install -q wandb huggingface_hub datasets\n"
+         f"!git clone https://github.com/{GH_REPO}.git sdk_sovereign_pkg 2>/dev/null || (cd sdk_sovereign_pkg && git pull)\n"
+         "!pip install -q -e sdk_sovereign_pkg/\n"
          "import sys; sys.path.insert(0, 'sdk_sovereign_pkg')\n"
          "print('✓ Ready')"),
 
@@ -246,17 +254,20 @@ nb02 = nb([
 # ── 03_train_auditor.ipynb ───────────────────────────────────────────────────
 
 nb03 = nb([
-    md("# 03 — Train Auditor Adapter (GRPO)\n\n"
+    md(f"[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]({COLAB_BASE}/03_train_auditor.ipynb)\n\n"
+       "# 03 — Train Auditor Adapter (GRPO)\n\n"
        "**Purpose:** Fine-tune the Auditor LoRA adapter. Mirrors notebook 02 but with "
        "an auditor-specific reward function (allow-list correctness).\n\n"
        "**Runtime:** Colab T4 · ~2h\n\n"
-       "> Run after notebook 02 (or re-run cells 1-3 to reload model)."),
+       "> Run after notebook 02. Set `HF_TOKEN` + `WANDB_API_KEY` in Colab Secrets."),
 
-    code("# Cell 1 — Install (skip if already done)\n"
+    code("# Cell 1 — Install + clone repo\n"
          "!pip install -q \"unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git\"\n"
          "!pip install -q --no-deps \"trl<0.13\" peft accelerate bitsandbytes\n"
          "!pip install -q \"openenv-core[core] @ git+https://github.com/meta-pytorch/OpenEnv@v0.2.3\"\n"
          "!pip install -q wandb huggingface_hub datasets\n"
+         f"!git clone https://github.com/{GH_REPO}.git sdk_sovereign_pkg 2>/dev/null || (cd sdk_sovereign_pkg && git pull)\n"
+         "!pip install -q -e sdk_sovereign_pkg/\n"
          "import sys; sys.path.insert(0, 'sdk_sovereign_pkg')\n"
          "print('✓ Ready')"),
 
@@ -348,17 +359,20 @@ nb03 = nb([
 # ── 04_eval_and_plots.ipynb ──────────────────────────────────────────────────
 
 nb04 = nb([
-    md("# 04 — Eval + Plots\n\n"
+    md(f"[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]({COLAB_BASE}/04_eval_and_plots.ipynb)\n\n"
+       "# 04 — Eval + Plots\n\n"
        "**Purpose:** Compare random baseline vs trained adapters over 30 episodes each. "
        "Generate 6 publication-ready PNGs in `plots/`.\n\n"
        "**Runtime:** Colab T4 · ~1h\n\n"
-       "> Requires notebooks 02 + 03 to have completed (adapters on HF Hub)."),
+       "> Requires notebooks 02 + 03 complete (adapters pushed to HF Hub)."),
 
-    code("# Cell 1 — Install\n"
+    code("# Cell 1 — Install + clone repo\n"
          "!pip install -q \"unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git\"\n"
          "!pip install -q --no-deps \"trl<0.13\" peft accelerate bitsandbytes\n"
          "!pip install -q \"openenv-core[core] @ git+https://github.com/meta-pytorch/OpenEnv@v0.2.3\"\n"
          "!pip install -q wandb huggingface_hub matplotlib numpy\n"
+         f"!git clone https://github.com/{GH_REPO}.git sdk_sovereign_pkg 2>/dev/null || (cd sdk_sovereign_pkg && git pull)\n"
+         "!pip install -q -e sdk_sovereign_pkg/\n"
          "import sys; sys.path.insert(0, 'sdk_sovereign_pkg')\n"
          "!mkdir -p plots\n"
          "print('✓ Ready')"),
