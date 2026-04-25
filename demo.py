@@ -26,8 +26,8 @@ def main() -> None:
 
 	env = SDKSovereignEnvironment(seed=7)
 	observation = env.reset()
-	console.print(f"\n[dim]Repo:[/] {env.state().repo_id}")
-	console.print(f"[dim]Deprecated SDK:[/] {env.state().deprecated_sdk}")
+	console.print(f"\n[dim]Repo:[/] {env.state.repo_id}")
+	console.print(f"[dim]Deprecated SDK:[/] {env.state.deprecated_sdk}")
 	console.print(f"[dim]Error log:[/] {observation.error_log}\n")
 
 	while not observation.done:
@@ -48,7 +48,7 @@ def main() -> None:
 
 	console.print()
 	console.print(Rule("[bold]Outcome"))
-	state = env.state()
+	state = env.state
 	table = Table()
 	table.add_column("Field")
 	table.add_column("Value")

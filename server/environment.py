@@ -5,6 +5,7 @@ import json
 import random
 import uuid
 from pathlib import Path
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 try:
@@ -25,11 +26,14 @@ class SDKSovereignEnvironment(Environment[SDKAction, SDKObservation, SDKState]):
 	MAX_TURNS = 7
 	SUPPORTS_CONCURRENT_SESSIONS = True
 
-	def __init__(self, repos_root: Optional[Path] = None, seed: int = 0):
+	def __init__(self, repos_root: Optional[Path] = None, seed: int = 0, logs_root: Optional[Path] = None):
 		"""Initialise environment repositories, verifier, and rubric."""
 		super().__init__()
 		repos_root = repos_root or Path(__file__).parent / "repos"
 		self.repos_root = Path(repos_root)
+		self.logs_root = Path(logs_root or self.repos_root.parent.parent / "logs")
+		self.logs_root.mkdir(parents=True, exist_ok=True)
+		self.episodes_log_path = self.logs_root / "episodes.jsonl"
 		self.allowlist_path = Path(__file__).parent / "allowlist.json"
 		self._load_allowlist()
 		self._discover_repos()
@@ -65,16 +69,20 @@ class SDKSovereignEnvironment(Environment[SDKAction, SDKObservation, SDKState]):
 		self,
 		seed: Optional[int] = None,
 		episode_id: Optional[str] = None,
+		repo_id: Optional[str] = None,
 		**kwargs,
 	) -> SDKObservation:
 		"""Start a new episode and return the first auditor observation."""
 		if seed is not None:
 			self._rng.seed(seed)
-		repo_id = self._rng.choice(list(self.repos.keys()))
-		repo = self.repos[repo_id]
+		selected_repo_id = repo_id or kwargs.get("repo_id")
+		if selected_repo_id is not None and selected_repo_id not in self.repos:
+			raise ValueError(f"Unknown repo_id: {selected_repo_id}")
+		selected_repo_id = selected_repo_id or self._rng.choice(list(self.repos.keys()))
+		repo = self.repos[selected_repo_id]
 		self._state = SDKState(
 			episode_id=episode_id or str(uuid.uuid4())[:8],
-			repo_id=repo_id,
+			repo_id=selected_repo_id,
 			deprecated_sdk=repo["deprecated_sdk"],
 			ground_truth_replacement=repo["ground_truth_replacement"],
 		)
@@ -103,11 +111,13 @@ class SDKSovereignEnvironment(Environment[SDKAction, SDKObservation, SDKState]):
 					"reward": -1.0,
 				}
 			)
-			return self._build_observation(
+			observation = self._build_observation(
 				self._next_role(),
 				last_reward=-1.0,
 				breakdown={"wrong_role_penalty": -1.0},
 			)
+			self._append_episode_log(action, observation, -1.0)
+			return observation
 
 		self._apply_action(action)
 
@@ -149,12 +159,41 @@ class SDKSovereignEnvironment(Environment[SDKAction, SDKObservation, SDKState]):
 		self._state.step_count += 1
 
 		next_role = self._next_role() if not done else action.role
-		return self._build_observation(next_role, done=done, last_reward=step_reward, breakdown=breakdown)
+		observation = self._build_observation(next_role, done=done, last_reward=step_reward, breakdown=breakdown)
+		self._append_episode_log(action, observation, step_reward)
+		return observation
 
 	@property
 	def state(self) -> SDKState:
 		"""Return full unmasked environment state."""
 		return self._state
+
+	def _append_episode_log(
+		self,
+		action: SDKAction,
+		observation: SDKObservation,
+		step_reward: float,
+	) -> None:
+		"""Append a JSONL step snapshot for downstream analysis and plots."""
+		if self._state is None:
+			return
+		record = {
+			"timestamp": datetime.now(timezone.utc).isoformat(),
+			"episode_id": self._state.episode_id,
+			"repo_id": self._state.repo_id,
+			"turn_index": observation.turn_index,
+			"role": action.role,
+			"action_type": action.action_type,
+			"proposed_sdk": action.proposed_sdk,
+			"approved_replacement": self._state.approved_replacement,
+			"terminated_reason": self._state.terminated_reason,
+			"reward": step_reward,
+			"done": observation.done,
+			"test_results": self._state.test_results,
+			"cumulative_reward_by_role": dict(self._state.cumulative_reward_by_role),
+		}
+		with self.episodes_log_path.open("a", encoding="utf-8") as handle:
+			handle.write(json.dumps(record) + "\n")
 
 	def _next_role(self) -> str:
 		"""Return whose turn it is based on step parity."""

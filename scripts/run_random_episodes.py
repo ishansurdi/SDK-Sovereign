@@ -58,12 +58,12 @@ def main() -> None:
         observation = env.reset()
         while not observation.done:
             observation = env.step(_random_action(observation, rng))
-        total = sum(env.state().cumulative_reward_by_role.values())
+        total = sum(env.state.cumulative_reward_by_role.values())
         rewards.append(total)
         print(
             f"Episode {index + 1:02d}: total_reward={total:+6.2f} "
-            f"repo={env.state().repo_id} "
-            f"reason={env.state().terminated_reason}"
+            f"repo={env.state.repo_id} "
+            f"reason={env.state.terminated_reason}"
         )
 
     stdev = statistics.stdev(rewards) if len(rewards) > 1 else 0.0

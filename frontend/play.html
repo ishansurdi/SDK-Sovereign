@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SDK-Sovereign Live Demo</title>
+<style>
+	:root {
+		--bg: #f4efe5;
+		--panel: rgba(255, 250, 242, 0.9);
+		--ink: #1f1b16;
+		--muted: #695f53;
+		--accent: #0f766e;
+		--accent-2: #c2410c;
+		--auditor-bg: #fce7f3;
+		--auditor-border: #be185d;
+		--lead-bg: #dbeafe;
+		--lead-border: #1d4ed8;
+		--success-bg: #dcfce7;
+		--success-ink: #14532d;
+		--failure-bg: #fee2e2;
+		--failure-ink: #991b1b;
+	}
+
+	* { box-sizing: border-box; }
+	body {
+		margin: 0;
+		font-family: Georgia, "Times New Roman", serif;
+		color: var(--ink);
+		background:
+			radial-gradient(circle at top left, rgba(194, 65, 12, 0.16), transparent 28%),
+			radial-gradient(circle at top right, rgba(15, 118, 110, 0.18), transparent 26%),
+			linear-gradient(180deg, #fbf7ef 0%, var(--bg) 100%);
+	}
+
+	main {
+		width: min(980px, calc(100% - 32px));
+		margin: 0 auto;
+		padding: 32px 0 48px;
+	}
+
+	h1 {
+		margin: 0 0 12px;
+		font-size: clamp(2rem, 4vw, 3.4rem);
+		line-height: 0.95;
+		letter-spacing: -0.04em;
+	}
+
+	.deck {
+		display: grid;
+		gap: 20px;
+		grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+		align-items: start;
+	}
+
+	.panel {
+		background: var(--panel);
+		border: 1px solid rgba(31, 27, 22, 0.08);
+		border-radius: 20px;
+		box-shadow: 0 18px 60px rgba(49, 39, 28, 0.08);
+		padding: 20px;
+		backdrop-filter: blur(10px);
+	}
+
+	.pitch {
+		font-size: 1.05rem;
+		line-height: 1.6;
+		color: var(--muted);
+	}
+
+	.controls {
+		display: flex;
+		gap: 12px;
+		flex-wrap: wrap;
+		align-items: end;
+		margin-top: 20px;
+	}
+
+	label {
+		display: grid;
+		gap: 8px;
+		flex: 1 1 280px;
+		font-size: 0.95rem;
+		color: var(--muted);
+	}
+
+	select, button {
+		min-height: 46px;
+		border-radius: 14px;
+		border: 1px solid rgba(31, 27, 22, 0.12);
+		font: inherit;
+	}
+
+	select {
+		padding: 0 14px;
+		background: #fff;
+		color: var(--ink);
+	}
+
+	button {
+		padding: 0 18px;
+		border: none;
+		background: linear-gradient(135deg, var(--accent) 0%, #155e75 100%);
+		color: #fff;
+		cursor: pointer;
+		font-weight: 700;
+		box-shadow: 0 12px 24px rgba(15, 118, 110, 0.22);
+	}
+
+	button:disabled {
+		cursor: wait;
+		opacity: 0.7;
+		box-shadow: none;
+	}
+
+	.status {
+		min-height: 24px;
+		margin-top: 14px;
+		color: var(--muted);
+		font-size: 0.95rem;
+	}
+
+	.turn {
+		margin: 0 0 14px;
+		padding: 14px 16px;
+		border-radius: 16px;
+		transform: translateY(8px);
+		opacity: 0;
+		animation: rise 240ms ease forwards;
+	}
+
+	.turn.auditor { background: var(--auditor-bg); border-left: 4px solid var(--auditor-border); }
+	.turn.lead { background: var(--lead-bg); border-left: 4px solid var(--lead-border); }
+	.role { font-weight: 700; letter-spacing: 0.08em; font-size: 0.82rem; }
+	.action { display: block; margin-top: 6px; font-family: "Consolas", "Courier New", monospace; }
+	.detail { margin-top: 8px; line-height: 1.5; }
+
+	.verdict {
+		padding: 18px;
+		border-radius: 18px;
+		margin-top: 20px;
+		font-size: 1.05rem;
+	}
+
+	.success { background: var(--success-bg); color: var(--success-ink); }
+	.failure { background: var(--failure-bg); color: var(--failure-ink); }
+
+	.meta {
+		display: grid;
+		gap: 8px;
+		margin-top: 20px;
+		color: var(--muted);
+		font-size: 0.95rem;
+	}
+
+	@keyframes rise {
+		to { transform: translateY(0); opacity: 1; }
+	}
+</style>
+</head>
+<body>
+<main>
+	<section class="deck">
+		<div class="panel">
+			<p style="margin:0; text-transform:uppercase; letter-spacing:0.18em; color:var(--accent-2); font-size:0.78rem;">Phase 9 Demo</p>
+			<h1>SDK-Sovereign<br>Live Negotiation</h1>
+			<div class="pitch">
+				It's 2026. Your core vendor stack is cut off for Indian users overnight. Auditor sees the sovereign allow-list. Lead sees the broken code. They get seven turns to coordinate a migration under partial information.
+			</div>
+			<div class="controls">
+				<label>
+					Pick a repo
+					<select id="repo">
+						<option value="payments_repo">payments_repo · Stripe to Razorpay</option>
+						<option value="maps_repo">maps_repo · Google Maps to MMI</option>
+						<option value="comms_repo">comms_repo · Twilio to Kaleyra</option>
+					</select>
+				</label>
+				<button id="run">Run Episode</button>
+			</div>
+			<div id="status" class="status"></div>
+			<div id="meta" class="meta"></div>
+		</div>
+
+		<div class="panel">
+			<div id="output"></div>
+		</div>
+	</section>
+</main>
+
+<script>
+const base = window.location.origin;
+const runButton = document.getElementById("run");
+const repoSelect = document.getElementById("repo");
+const output = document.getElementById("output");
+const status = document.getElementById("status");
+const meta = document.getElementById("meta");
+
+runButton.addEventListener("click", async () => {
+	runButton.disabled = true;
+	output.innerHTML = "";
+	meta.innerHTML = "";
+	try {
+		status.textContent = "Resetting environment...";
+		let observation = await postJson(`${base}/play/reset?repo_id=${encodeURIComponent(repoSelect.value)}`);
+		renderMeta(observation);
+		status.textContent = "Running agents...";
+
+		for (let turn = 0; turn < 7 && !observation.done; turn += 1) {
+			const next = await postJson(`${base}/play/agent_step`);
+			appendTurn(next.action);
+			observation = next.observation;
+			renderMeta(observation);
+			await sleep(700);
+		}
+
+		const finalState = await fetchJson(`${base}/play/state`);
+		appendVerdict(finalState);
+		status.textContent = "Episode complete.";
+	} catch (error) {
+		console.error(error);
+		status.textContent = `Run failed: ${error.message || error}`;
+	} finally {
+		runButton.disabled = false;
+	}
+});
+
+function appendTurn(action) {
+	const card = document.createElement("div");
+	card.className = `turn ${action.role}`;
+	const detail = action.proposed_sdk || action.rejection_reason || action.hint_response || action.reasoning || (action.patched_code ? "Patch submitted" : "No details");
+	card.innerHTML = `
+		<span class="role">${escapeHtml(action.role.toUpperCase())}</span>
+		<span class="action">${escapeHtml(action.action_type)}</span>
+		<div class="detail">${escapeHtml(detail).slice(0, 280)}</div>
+	`;
+	output.appendChild(card);
+}
+
+function appendVerdict(state) {
+	const values = Object.values(state.test_results || {});
+	const success = values.length > 0 && values.every(Boolean);
+	const card = document.createElement("div");
+	card.className = `verdict ${success ? "success" : "failure"}`;
+	card.innerHTML = `${success ? "Migration successful" : "Migration failed"} · ${values.filter(Boolean).length}/${values.length || 3} tests passed`;
+	output.appendChild(card);
+}
+
+function renderMeta(observation) {
+	meta.innerHTML = `
+		<div>Turn ${observation.turn_index} / ${observation.max_turns}</div>
+		<div>Current role: ${escapeHtml(observation.current_role)}</div>
+		<div>Current proposal: ${escapeHtml(observation.current_proposal || "none")}</div>
+		<div>Approved replacement: ${escapeHtml(observation.approved_replacement || "none")}</div>
+	`;
+}
+
+async function postJson(url) {
+	const response = await fetch(url, { method: "POST" });
+	if (!response.ok) {
+		throw new Error(await response.text());
+	}
+	return response.json();
+}
+
+async function fetchJson(url) {
+	const response = await fetch(url);
+	if (!response.ok) {
+		throw new Error(await response.text());
+	}
+	return response.json();
+}
+
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function escapeHtml(value) {
+	return String(value).replace(/[&<>"']/g, (char) => ({
+		"&": "&amp;",
+		"<": "&lt;",
+		">": "&gt;",
+		'"': "&quot;",
+		"'": "&#39;",
+	}[char]));
+}
+</script>
+</body>
+</html>

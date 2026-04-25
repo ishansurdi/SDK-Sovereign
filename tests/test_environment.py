@@ -105,3 +105,41 @@ def test_episode_terminates_on_max_turns(fixture_env) -> None:
 		role = "auditor" if index % 2 == 0 else "lead"
 		observation = fixture_env.step(SDKAction(role=role, action_type="pass"))
 	assert observation.done is True
+
+
+def test_reset_accepts_repo_override_and_writes_episode_log(tmp_path: Path) -> None:
+	"""Selected repos should reset deterministically and emit JSONL step logs."""
+	repos_root = tmp_path / "repos"
+	repos_root.mkdir()
+	for repo_id, deprecated_sdk in (("fixture_a", "stripe"), ("fixture_b", "twilio")):
+		repo = repos_root / repo_id
+		repo.mkdir()
+		(repo / "broken.py").write_text(f"import {deprecated_sdk}\n")
+		(repo / "meta.json").write_text(
+			json.dumps(
+				{
+					"repo_id": repo_id,
+					"deprecated_sdk": deprecated_sdk,
+					"ground_truth_replacement": "razorpay",
+					"category": "payments",
+					"entrypoint": "main",
+					"error_log": f"{deprecated_sdk} blocked",
+				}
+			)
+		)
+		(repo / "tests.json").write_text(json.dumps({}))
+
+	from server.environment import SDKSovereignEnvironment
+
+	logs_root = tmp_path / "logs"
+	env = SDKSovereignEnvironment(repos_root=repos_root, logs_root=logs_root, seed=3)
+	observation = env.reset(repo_id="fixture_b")
+	assert env.state.repo_id == "fixture_b"
+	assert observation.current_role == Role.AUDITOR.value
+
+	env.step(SDKAction(role="auditor", action_type="pass"))
+	log_path = logs_root / "episodes.jsonl"
+	assert log_path.exists()
+	entries = [json.loads(line) for line in log_path.read_text().splitlines()]
+	assert entries[-1]["repo_id"] == "fixture_b"
+	assert entries[-1]["action_type"] == "pass"
