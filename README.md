@@ -1,6 +1,6 @@
 ---
 title: SDK-Sovereign
-emoji: 🇮🇳
+emoji: �
 colorFrom: orange
 colorTo: blue
 sdk: docker
