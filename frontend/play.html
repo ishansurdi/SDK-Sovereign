@@ -175,9 +175,19 @@
 	}
 
 	.issue-card h2,
+	.config-card h2,
 	.timeline-head h2 {
 		margin: 0 0 10px;
 		font-size: 1.2rem;
+	}
+
+	.config-card {
+		margin-top: 18px;
+		padding: 18px;
+		border-radius: 18px;
+		background: rgba(15, 118, 110, 0.08);
+		border: 1px solid rgba(15, 118, 110, 0.18);
+		color: var(--muted);
 	}
 
 	.issue-grid {
@@ -253,10 +263,15 @@
 						<option value="comms_repo">comms_repo · Twilio to Kaleyra</option>
 					</select>
 				</label>
+				<label>
+					Policy mode
+					<select id="mode"></select>
+				</label>
 				<button id="run">Run Episode</button>
 			</div>
 			<div id="status" class="status"></div>
 			<div id="meta" class="meta"></div>
+			<div id="configCard" class="config-card"></div>
 			<div id="issueCard" class="issue-card"></div>
 		</div>
 
@@ -273,11 +288,13 @@
 <script>
 const base = window.location.origin;
 const agentMode = document.getElementById("agentMode");
+const modeSelect = document.getElementById("mode");
 const runButton = document.getElementById("run");
 const repoSelect = document.getElementById("repo");
 const output = document.getElementById("output");
 const status = document.getElementById("status");
 const meta = document.getElementById("meta");
+const configCard = document.getElementById("configCard");
 const issueCard = document.getElementById("issueCard");
 
 bootstrap();
@@ -286,6 +303,7 @@ async function bootstrap() {
 	try {
 		const catalog = await fetchJson(`${base}/play/catalog`);
 		renderCatalog(catalog);
+		renderDiagnostics(catalog.diagnostics);
 		setAgentMode(catalog.agent_mode);
 	} catch (error) {
 		status.textContent = `Failed to load demo catalog: ${error.message || error}`;
@@ -298,7 +316,7 @@ runButton.addEventListener("click", async () => {
 	meta.innerHTML = "";
 	try {
 		status.textContent = "Resetting environment...";
-		let response = await postJson(`${base}/play/reset?repo_id=${encodeURIComponent(repoSelect.value)}`);
+		let response = await postJson(`${base}/play/reset?repo_id=${encodeURIComponent(repoSelect.value)}&mode=${encodeURIComponent(modeSelect.value)}`);
 		let observation = response.observation;
 		setAgentMode(response.agent_mode);
 		renderIssue(response.issue);
@@ -393,6 +411,9 @@ function renderCatalog(catalog) {
 	if (!catalog || !Array.isArray(catalog.repos)) {
 		return;
 	}
+	modeSelect.innerHTML = (catalog.available_modes || []).map((mode) => (
+		`<option value="${escapeHtml(mode.id)}">${escapeHtml(mode.label)}</option>`
+	)).join("");
 	repoSelect.innerHTML = catalog.repos.map((repo) => (
 		`<option value="${escapeHtml(repo.repo_id)}">${escapeHtml(repo.repo_id)} · ${escapeHtml(repo.deprecated_sdk)} to ${escapeHtml(repo.target_sdk)}</option>`
 	)).join("");
@@ -423,8 +444,26 @@ function renderCatalog(catalog) {
 	});
 }
 
+function renderDiagnostics(diagnostics) {
+	if (!diagnostics) {
+		configCard.innerHTML = "";
+		return;
+	}
+	const notes = (diagnostics.notes || []).map((note) => `<div>${escapeHtml(note)}</div>`).join("");
+	configCard.innerHTML = `
+		<h2>Policy Availability</h2>
+		<div>Available modes: ${escapeHtml((diagnostics.available_mode_ids || []).join(", ") || "none")}</div>
+		<div class="details">${notes || "No extra configuration notes."}</div>
+	`;
+}
+
 function setAgentMode(mode) {
-	agentMode.textContent = mode === "live" ? "Live adapters" : "Rule fallback · verifier-backed";
+	const labels = {
+		rule: "Rule fallback · verifier-backed",
+		baseline: "Baseline model · self-generated",
+		trained: "Trained adapters · RL policy",
+	};
+	agentMode.textContent = labels[mode] || mode;
 }
 
 async function postJson(url) {
