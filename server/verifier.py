@@ -180,6 +180,8 @@ class Verifier:
 
 	def run_parity_tests(self, code: str, repo_id: str) -> Dict[str, bool]:
 		"""Execute code and evaluate it against the repo's parity tests."""
+		# Reinstall stubs per run so remote workers do not drift onto real or missing SDK modules.
+		self.stubs.install_in_sys_modules()
 		tests = self.load_tests(repo_id)
 		meta = self.load_meta(repo_id)
 		target_fn = meta["entrypoint"]

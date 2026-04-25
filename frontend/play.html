@@ -350,9 +350,15 @@ function appendTurn(action, entry) {
 function appendVerdict(state) {
 	const values = Object.values(state.test_results || {});
 	const success = values.length > 0 && values.every(Boolean);
+	const breakdown = Object.entries(state.test_results || {}).map(([name, passed]) => (
+		`<div><span class="pill">${escapeHtml(name)}</span> ${passed ? "passed" : "failed"}</div>`
+	)).join("");
 	const card = document.createElement("div");
 	card.className = `verdict ${success ? "success" : "failure"}`;
-	card.innerHTML = `${success ? "Migration successful" : "Migration failed"} · ${values.filter(Boolean).length}/${values.length || 3} tests passed`;
+	card.innerHTML = `
+		<div>${success ? "Migration successful" : "Migration failed"} · ${values.filter(Boolean).length}/${values.length || 3} tests passed</div>
+		<div class="details">${breakdown || "No verifier tests recorded."}</div>
+	`;
 	output.appendChild(card);
 }
 
@@ -418,7 +424,7 @@ function renderCatalog(catalog) {
 }
 
 function setAgentMode(mode) {
-	agentMode.textContent = mode === "live" ? "Live adapters" : "Rule fallback";
+	agentMode.textContent = mode === "live" ? "Live adapters" : "Rule fallback · verifier-backed";
 }
 
 async function postJson(url) {

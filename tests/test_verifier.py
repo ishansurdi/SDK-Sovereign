@@ -77,6 +77,17 @@ def test_verifier_fails_wrong_output(repos_root: Path) -> None:
 	assert results["test_one"] is False
 
 
+def test_verifier_reinstalls_stubs_per_run(repos_root: Path) -> None:
+	"""Parity checks should recover if SDK stub modules were removed from sys.modules."""
+	import sys
+
+	verifier = Verifier(repos_root)
+	sys.modules.pop("stripe", None)
+	code = "import stripe\ndef do_thing(x):\n    return {'value': x}"
+	results = verifier.run_parity_tests(code, "fake_repo")
+	assert results["test_one"] is True
+
+
 def test_verifier_handles_syntax_error(repos_root: Path) -> None:
 	"""Validate graceful handling of syntax errors."""
 	verifier = Verifier(repos_root)
