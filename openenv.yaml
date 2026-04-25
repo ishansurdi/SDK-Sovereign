@@ -1,0 +1,18 @@
+type: space
+runtime: fastapi
+app: server.app:app
+port: 8000
+
+metadata:
+  display_name: "SDK-Sovereign \U0001F1EE\U0001F1F3"
+  description: >-
+    Multi-agent OpenEnv environment for digital sovereignty migrations.
+    Two LLM agents — Auditor and Lead — coordinate under partial information
+    to migrate a sanctioned SDK to a sovereign Indian alternative within 7 turns.
+  theme: "multi-agent"
+  tags:
+    - "multi-agent"
+    - "code-generation"
+    - "partial-observability"
+    - "sovereignty"
+    - "india"

@@ -16,6 +16,13 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+try:
+    from core.env_server import Action as _OEAction, Observation as _OEObservation, State as _OEState
+except ImportError:
+    class _OEAction: ...  # type: ignore[no-redef]
+    class _OEObservation: ...  # type: ignore[no-redef]
+    class _OEState: ...  # type: ignore[no-redef]
+
 
 class Role(str, Enum):
 	"""Enumerates the two environment roles."""
@@ -37,7 +44,7 @@ class ActionType(str, Enum):
 
 
 @dataclass
-class SDKAction:
+class SDKAction(_OEAction):
 	"""Represents one agent action for a turn."""
 
 	role: str
@@ -51,7 +58,7 @@ class SDKAction:
 
 
 @dataclass
-class SDKObservation:
+class SDKObservation(_OEObservation):
 	"""Represents the role-masked observation returned each turn."""
 
 	current_role: str
@@ -70,7 +77,7 @@ class SDKObservation:
 
 
 @dataclass
-class SDKState:
+class SDKState(_OEState):
 	"""Represents the full hidden environment state."""
 
 	episode_id: str
