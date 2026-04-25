@@ -1,6 +1,6 @@
 ---
 title: SDK-Sovereign
-emoji: �
+emoji: 🤖
 colorFrom: orange
 colorTo: blue
 sdk: docker
@@ -14,15 +14,14 @@ tags:
 license: mit
 ---
 
-# SDK-Sovereign 🇮🇳
+# SDK-Sovereign
 
 Multi-agent OpenEnv environment for digital sovereignty SDK migrations.
 
 **Status:** In development. Final README ships in Phase 10.
 
 ## Quickstart
-```bash
+\\ash
 pip install -e .
 pytest tests/ -v
-python demo.py
-```
+\
