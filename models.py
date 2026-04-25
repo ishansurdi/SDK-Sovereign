@@ -12,9 +12,10 @@ Design notes
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+import json
+from typing import Any, Dict, List, Optional, Type, TypeVar
 
 try:
     from core.env_server import Action as _OEAction, Observation as _OEObservation, State as _OEState
@@ -22,6 +23,34 @@ except ImportError:
     class _OEAction: ...  # type: ignore[no-redef]
     class _OEObservation: ...  # type: ignore[no-redef]
     class _OEState: ...  # type: ignore[no-redef]
+
+
+ModelT = TypeVar("ModelT", bound="_OpenEnvCompatMixin")
+
+
+class _OpenEnvCompatMixin:
+	"""Small Pydantic-style shim for OpenEnv serialization hooks."""
+
+	def model_dump(
+		self,
+		*,
+		exclude: Optional[set[str]] = None,
+		exclude_none: bool = False,
+		**_: Any,
+	) -> Dict[str, Any]:
+		data = asdict(self)
+		if exclude:
+			data = {key: value for key, value in data.items() if key not in exclude}
+		if exclude_none:
+			data = {key: value for key, value in data.items() if value is not None}
+		return data
+
+	@classmethod
+	def model_validate(cls: Type[ModelT], data: Dict[str, Any]) -> ModelT:
+		return cls(**data)
+
+	def model_dump_json(self, **kwargs: Any) -> str:
+		return json.dumps(self.model_dump(**kwargs))
 
 
 class Role(str, Enum):
@@ -44,7 +73,7 @@ class ActionType(str, Enum):
 
 
 @dataclass
-class SDKAction(_OEAction):
+class SDKAction(_OpenEnvCompatMixin, _OEAction):
 	"""Represents one agent action for a turn."""
 
 	role: str
@@ -58,7 +87,7 @@ class SDKAction(_OEAction):
 
 
 @dataclass
-class SDKObservation(_OEObservation):
+class SDKObservation(_OpenEnvCompatMixin, _OEObservation):
 	"""Represents the role-masked observation returned each turn."""
 
 	current_role: str
@@ -77,7 +106,7 @@ class SDKObservation(_OEObservation):
 
 
 @dataclass
-class SDKState(_OEState):
+class SDKState(_OpenEnvCompatMixin, _OEState):
 	"""Represents the full hidden environment state."""
 
 	episode_id: str
