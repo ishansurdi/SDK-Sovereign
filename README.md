@@ -26,6 +26,8 @@ SDK-Sovereign is a multi-agent OpenEnv environment built around that crisis. It 
 - Blog writeup: [BLOG.md](BLOG.md)
 - Training notebook: [notebooks/00_hardened_pipeline.ipynb](notebooks/00_hardened_pipeline.ipynb)
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ishansurdi/SDK-Sovereign/blob/master/notebooks/00_hardened_pipeline.ipynb)
+
 These are the main links judges need to discover, run, and inspect the environment submission.
 
 ## Overview
