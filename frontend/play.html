@@ -247,6 +247,14 @@
 		margin-top: 12px;
 		display: grid;
 		gap: 10px;
+		overflow: hidden;
+	}
+
+	.support-output > div,
+	.support-output strong,
+	.support-card .status {
+		overflow-wrap: anywhere;
+		word-break: break-word;
 	}
 
 	input[type="url"] {
@@ -275,6 +283,9 @@
 		background: #fff;
 		font-size: 0.82rem;
 		overflow-x: auto;
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+		word-break: break-word;
 		border: 1px solid rgba(31, 27, 22, 0.08);
 	}
 </style>
@@ -408,9 +419,13 @@ analyzeRepoButton.addEventListener("click", async () => {
 		repoSupportStatus.textContent = "Analyzing repository...";
 		const analysis = await postJson(`${base}/play/repo_analysis`, { repo_url: repoUrl });
 		renderRepoSupport(analysis);
-		repoSupportStatus.textContent = analysis.gemini && analysis.gemini.enabled
-			? "Analysis complete. Gemini support response included."
-			: "Analysis complete. Gemini support is optional and currently unavailable.";
+		if (analysis.gemini && analysis.gemini.enabled && analysis.gemini.status === "ok") {
+			repoSupportStatus.textContent = "Analysis complete. Gemini support response included.";
+		} else if (analysis.gemini && analysis.gemini.enabled) {
+			repoSupportStatus.textContent = `Analysis complete. Gemini support returned ${analysis.gemini.status}.`;
+		} else {
+			repoSupportStatus.textContent = "Analysis complete. Gemini support is optional and currently unavailable.";
+		}
 	} catch (error) {
 		repoSupportStatus.textContent = `Support analysis failed: ${error.message || error}`;
 	} finally {
@@ -535,8 +550,12 @@ function renderRepoSupport(analysis) {
 	const findings = (analysis.local_analysis?.findings || []).map((item) => (
 		`<div>${escapeHtml(item)}</div>`
 	)).join("");
+	const geminiMeta = analysis.gemini
+		? `<div><strong>Status</strong><br>${escapeHtml(analysis.gemini.status || "unknown")}</div>
+		   <div><strong>Model</strong><br>${escapeHtml(analysis.gemini.model || "not used")}</div>`
+		: "";
 	const geminiSummary = analysis.gemini?.summary
-		? `<pre>${escapeHtml(analysis.gemini.summary)}</pre>`
+		? `<div>${escapeHtml(analysis.gemini.summary)}</div>`
 		: `<div>${escapeHtml(analysis.gemini?.enabled ? "Gemini returned no text." : "Gemini support is disabled until GEMINI_API is set in the Space secrets.")}</div>`;
 	repoSupportOutput.innerHTML = `
 		<div><strong>Repository</strong><br>${escapeHtml(analysis.repo?.url || "unknown")}</div>
@@ -544,6 +563,7 @@ function renderRepoSupport(analysis) {
 		<div><strong>Sovereign recommendation</strong><br>${escapeHtml(analysis.local_analysis?.recommended_replacement || "manual review needed")}</div>
 		<div><strong>Next action</strong><br>${escapeHtml(analysis.local_analysis?.next_action || "none")}</div>
 		<div><strong>Local findings</strong><div class="details">${findings || "<div>No local findings.</div>"}</div></div>
+		${geminiMeta}
 		<div><strong>Gemini support</strong><br>${geminiSummary}</div>
 	`;
 }

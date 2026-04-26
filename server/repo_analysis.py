@@ -172,11 +172,14 @@ def generate_gemini_analysis(snapshot: GitHubSnapshot, local_analysis: dict[str,
             data = json.loads(response.read().decode("utf-8"))
     except error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace") if hasattr(exc, "read") else str(exc)
+        summary, status, code, retry_after_seconds = _summarize_gemini_error(detail)
         return {
             "enabled": True,
-            "status": "http_error",
+            "status": status,
             "model": "gemini-2.0-flash",
-            "summary": detail[:1000],
+            "summary": summary,
+            "code": code,
+            "retry_after_seconds": retry_after_seconds,
         }
     except error.URLError as exc:
         return {
@@ -232,3 +235,31 @@ def _extract_gemini_text(payload: dict[str, Any]) -> str | None:
         if merged:
             return merged
     return None
+
+
+def _summarize_gemini_error(detail: str) -> tuple[str, str, int | None, float | None]:
+    """Collapse verbose Gemini API errors into compact UI-friendly status text."""
+    normalized = re.sub(r"\s+", " ", detail).strip()
+    try:
+        payload = json.loads(detail)
+    except json.JSONDecodeError:
+        return normalized[:280] or "Gemini request failed.", "http_error", None, None
+
+    error_payload = payload.get("error") or {}
+    status = str(error_payload.get("status") or "http_error").lower()
+    code = error_payload.get("code")
+    message = re.sub(r"\s+", " ", str(error_payload.get("message") or "")).strip()
+    retry_match = re.search(r"Please retry in ([0-9.]+)s", message)
+    retry_after_seconds = float(retry_match.group(1)) if retry_match else None
+
+    if status == "resource_exhausted" or "quota exceeded" in message.lower():
+        summary = "Gemini quota exceeded for the configured GEMINI_API secret. Check billing/quota or retry later."
+        if retry_after_seconds is not None:
+            summary += f" Suggested retry: about {retry_after_seconds:.0f}s."
+        return summary, status, code if isinstance(code, int) else None, retry_after_seconds
+
+    if message:
+        trimmed = message.split("For more information", 1)[0].strip()
+        return trimmed[:280], status, code if isinstance(code, int) else None, retry_after_seconds
+
+    return normalized[:280] or "Gemini request failed.", status, code if isinstance(code, int) else None, retry_after_seconds
