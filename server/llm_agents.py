@@ -1,17 +1,32 @@
-"""LLM-backed agents. Loads Qwen 2.5-0.5B with two LoRA adapters and
-swaps between them based on whose turn it is.
-
-The adapter-swap is the linchpin of the two-policy claim. Verify with
-`assert model.active_adapter == 'auditor_adapter'` before every Auditor
-generation, same for Lead.
-"""
+"""LLM-backed agents with deterministic evaluation defaults."""
 from __future__ import annotations
+
 import json
 import re
+from dataclasses import dataclass
 from typing import Any, Optional
 
-from models import SDKAction, SDKObservation, ActionType
+from models import ActionType, SDKAction, SDKObservation
 from server.prompts import SYSTEM_AUDITOR, SYSTEM_LEAD
+
+
+@dataclass(frozen=True)
+class GenerationProfile:
+    """Small immutable generation profile for a policy role."""
+
+    max_new_tokens: int
+    do_sample: bool
+    temperature: Optional[float] = None
+
+
+DETERMINISTIC_PROFILE = {
+    "lead": GenerationProfile(max_new_tokens=384, do_sample=False),
+    "auditor": GenerationProfile(max_new_tokens=96, do_sample=False),
+}
+EXPLORATION_PROFILE = {
+    "lead": GenerationProfile(max_new_tokens=384, do_sample=True, temperature=0.2),
+    "auditor": GenerationProfile(max_new_tokens=96, do_sample=True, temperature=0.2),
+}
 
 
 def load_model_with_two_adapters(
@@ -29,28 +44,36 @@ def load_model_with_two_adapters(
     )
 
     cfg = LoraConfig(
-        r=16, lora_alpha=32,
+        r=16,
+        lora_alpha=32,
         target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
-        lora_dropout=0.05, bias="none", task_type="CAUSAL_LM",
+        lora_dropout=0.05,
+        bias="none",
+        task_type="CAUSAL_LM",
     )
 
-    # Apply Auditor LoRA first (creates PEFT model wrapper)
     model = get_peft_model(model, cfg, adapter_name="auditor_adapter")
-    # Add Lead LoRA on the same base
     model.add_adapter(adapter_name="lead_adapter", peft_config=cfg)
-
     return model, tokenizer
 
 
 class LLMAgent:
-    """Single agent instance — swaps to its adapter on each call."""
+    """Single agent instance that swaps to its adapter on each call."""
 
-    def __init__(self, model: Any, tokenizer: Any, role: str):
+    def __init__(
+        self,
+        model: Any,
+        tokenizer: Any,
+        role: str,
+        *,
+        deterministic: bool = True,
+    ):
         self.model = model
         self.tokenizer = tokenizer
         self.role = role
         self.adapter_name = f"{role}_adapter"
         self.system_prompt = SYSTEM_AUDITOR if role == "auditor" else SYSTEM_LEAD
+        self.profile = (DETERMINISTIC_PROFILE if deterministic else EXPLORATION_PROFILE)[role]
 
     def __call__(self, obs: SDKObservation) -> SDKAction:
         self.model.set_adapter(self.adapter_name)
@@ -60,66 +83,75 @@ class LLMAgent:
 
     def _build_prompt(self, obs: SDKObservation) -> str:
         user_content = self._render_observation(obs)
-        msgs = [
+        messages = [
             {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": user_content},
         ]
         return self.tokenizer.apply_chat_template(
-            msgs, tokenize=False, add_generation_prompt=True,
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
         )
 
     def _render_observation(self, obs: SDKObservation) -> str:
         history_str = "\n".join(
-            f"  turn {h.get('turn', '?')}: {h.get('role')} → {h.get('action_type')}"
-            f" {h.get('proposed_sdk') or h.get('rejection_reason') or ''}"
-            for h in obs.conversation_history[-6:]
+            f"  turn {item.get('turn', '?')}: {item.get('role')} -> {item.get('action_type')}"
+            f" {item.get('proposed_sdk') or item.get('rejection_reason') or ''}"
+            for item in obs.conversation_history[-6:]
         ) or "  (no history yet)"
 
         if self.role == "auditor":
-            allow = ", ".join(obs.visible_allowlist or [])
+            allowlist = ", ".join(obs.visible_allowlist or [])
             return (
                 f"ERROR LOG: {obs.error_log}\n"
                 f"TURN: {obs.turn_index} of {obs.max_turns}\n"
                 f"CURRENT PROPOSAL: {obs.current_proposal or '(none yet)'}\n"
-                f"ALLOW-LIST: {allow}\n"
+                f"ALLOW-LIST: {allowlist}\n"
                 f"HISTORY:\n{history_str}\n\n"
-                f"Choose an action. Respond as a single JSON object."
+                "Choose an action. Respond as a single JSON object."
             )
 
-        # Lead view
         return (
             f"ERROR LOG: {obs.error_log}\n"
             f"TURN: {obs.turn_index} of {obs.max_turns}\n"
             f"BROKEN CODE ({obs.visible_filename}):\n```\n{obs.visible_codebase}\n```\n"
             f"APPROVED REPLACEMENT: {obs.approved_replacement or '(not yet approved)'}\n"
             f"HISTORY:\n{history_str}\n\n"
-            f"Choose an action. Respond as a single JSON object."
+            "Choose an action. Respond as a single JSON object."
         )
 
     def _generate(self, prompt: str) -> str:
         import torch
+
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
+        generate_kwargs = {
+            "max_new_tokens": self.profile.max_new_tokens,
+            "do_sample": self.profile.do_sample,
+            "pad_token_id": self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
+        }
+        if self.profile.do_sample and self.profile.temperature is not None:
+            generate_kwargs["temperature"] = self.profile.temperature
         with torch.inference_mode():
             outputs = self.model.generate(
                 **inputs,
-                max_new_tokens=512 if self.role == "lead" else 200,
-                temperature=0.7,
-                do_sample=True,
-                pad_token_id=self.tokenizer.eos_token_id,
+                **generate_kwargs,
             )
-        gen = outputs[0][inputs["input_ids"].shape[1]:]
-        return self.tokenizer.decode(gen, skip_special_tokens=True)
+        generated = outputs[0][inputs["input_ids"].shape[1]:]
+        return self.tokenizer.decode(generated, skip_special_tokens=True)
 
     def _parse_action(self, text: str) -> SDKAction:
         parsed = self._extract_json(text)
         if parsed is None:
-            return SDKAction(role=self.role, action_type=ActionType.PASS.value,
-                             reasoning=f"PARSE_FAIL: {text[:200]}")
-        action_type = parsed.get("action_type", "pass")
+            return SDKAction(
+                role=self.role,
+                action_type=ActionType.PASS.value,
+                reasoning=f"PARSE_FAIL: {text[:200]}",
+            )
+        action_type = parsed.get("action_type", ActionType.PASS.value)
         try:
             ActionType(action_type)
         except ValueError:
-            action_type = "pass"
+            action_type = ActionType.PASS.value
         return SDKAction(
             role=self.role,
             action_type=action_type,
@@ -133,24 +165,24 @@ class LLMAgent:
 
     @staticmethod
     def _extract_json(text: str) -> Optional[dict]:
-        m = re.search(r"\{.*\}", text, re.DOTALL)
-        if not m:
+        match = re.search(r"\{.*\}", text, re.DOTALL)
+        if not match:
             return None
         try:
-            return json.loads(m.group())
+            return json.loads(match.group())
         except json.JSONDecodeError:
-            # Trim from end until valid JSON
-            s = m.group()
-            for i in range(len(s), 0, -1):
+            snippet = match.group()
+            for index in range(len(snippet), 0, -1):
                 try:
-                    return json.loads(s[:i] + "}")
+                    return json.loads(snippet[:index] + "}")
                 except json.JSONDecodeError:
                     continue
         return None
 
 
-def make_agent_pair(model: Any, tokenizer: Any) -> dict:
+def make_agent_pair(model: Any, tokenizer: Any, *, deterministic: bool = True) -> dict[str, LLMAgent]:
+    """Return Lead and Auditor agents sharing one base model."""
     return {
-        "auditor": LLMAgent(model, tokenizer, "auditor"),
-        "lead": LLMAgent(model, tokenizer, "lead"),
+        "auditor": LLMAgent(model, tokenizer, "auditor", deterministic=deterministic),
+        "lead": LLMAgent(model, tokenizer, "lead", deterministic=deterministic),
     }

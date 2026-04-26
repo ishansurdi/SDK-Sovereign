@@ -12,6 +12,9 @@ try:
 	from openenv.core.env_server.interfaces import Environment
 except ImportError:
 	class Environment:  # type: ignore[no-redef]
+		def __class_getitem__(cls, _item):
+			return cls
+
 		def __init__(self, *args, **kwargs):
 			pass
 
