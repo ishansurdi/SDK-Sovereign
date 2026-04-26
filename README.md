@@ -18,6 +18,17 @@ It is 2026. Your vendor stack is cut off for Indian users overnight. The Auditor
 
 SDK-Sovereign is a multi-agent OpenEnv environment built around that crisis. It includes deterministic teacher and rule policies, model-backed baseline and trained modes when the runtime can actually support them, an end-to-end hardened training notebook, and judge-friendly evaluation artifacts.
 
+## Submission Links
+
+- Hugging Face Space: [ishansurdi/SDK-Sovereign](https://huggingface.co/spaces/ishansurdi/SDK-Sovereign)
+- Live environment URL: [ishansurdi-sdk-sovereign.hf.space](https://ishansurdi-sdk-sovereign.hf.space)
+- Live `/play` demo: [ishansurdi-sdk-sovereign.hf.space/play](https://ishansurdi-sdk-sovereign.hf.space/play)
+- Mini-blog writeup: [docs/HF_BLOG.md](docs/HF_BLOG.md)
+- Narrative project writeup: [BLOG.md](BLOG.md)
+- Training notebook: [notebooks/00_hardened_pipeline.ipynb](notebooks/00_hardened_pipeline.ipynb)
+
+These are the main links judges need to discover, run, and inspect the environment submission.
+
 ## Overview
 
 SDK-Sovereign is an asymmetric two-agent environment for sovereign SDK migration under operational constraints. The task is deliberately split across two roles:
@@ -115,6 +126,17 @@ The notebook uses:
 - supervised bootstrap before small RL refinement
 - deterministic evaluation so pass-rate comparisons stay stable
 
+## Experiment Tracking
+
+Experimental tracking is enabled in the hardened notebook with Weights & Biases, persistent JSONL logs, checkpoint snapshots, and Hugging Face Hub artifact uploads.
+
+Tracking surfaces include:
+
+- W&B login and run initialization inside `notebooks/00_hardened_pipeline.ipynb`
+- per-phase JSONL logs under `logs/`
+- checkpoint and adapter backups to Hugging Face Hub
+- final bundled artifacts for recovery after Colab disconnects
+
 ## Reward And Verification Design
 
 Reward is not just a single terminal bit. The environment exposes step-level reward components and terminal reward adjustments.
@@ -208,12 +230,14 @@ uvicorn server.app:app --host 0.0.0.0 --port 8000
 - Docker deployment currently installs the base package by default.
 - Model-backed live modes require a GPU-ready runtime plus the training stack, especially `unsloth`.
 - The runtime gate in `server/policy_runtime.py` prevents the UI from advertising `baseline` or `trained` when those requirements are missing.
+- The published Space for this submission is `ishansurdi/SDK-Sovereign`, served at `https://ishansurdi-sdk-sovereign.hf.space`.
 
 ## Validation
 
 - Route and runtime coverage currently includes the play demo, API routes, and model-runtime gating.
 - Focused validation after the latest runtime gating change passed with `9` tests.
 - `inference.py` provides an additional smoke path for `/health`, OpenEnv flow, and `/play` endpoints.
+- `tests/test_smoke_remote.py` can validate `/reset` and `/step` against the live Hugging Face Space when `SDK_SOVEREIGN_URL` is set.
 
 ## Current Status
 
