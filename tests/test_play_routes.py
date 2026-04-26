@@ -37,8 +37,8 @@ def test_play_reset_rejects_unknown_mode() -> None:
 	assert response.status_code == 400
 
 
-def test_repo_analysis_returns_local_and_gemini_sections(monkeypatch) -> None:
-	"""The repo analysis route should return the optional add-on payload shape."""
+def test_repo_analysis_returns_local_and_openai_sections(monkeypatch) -> None:
+	"""The repo analysis route should return the optional OpenAI-backed payload shape."""
 	client = TestClient(app)
 
 	def fake_analyze(repo_url: str) -> dict[str, object]:
@@ -46,7 +46,7 @@ def test_repo_analysis_returns_local_and_gemini_sections(monkeypatch) -> None:
 		return {
 			"repo": {"owner": "acme", "name": "demo", "url": repo_url},
 			"local_analysis": {"recommended_replacement": "razorpay"},
-			"gemini": {"enabled": False, "status": "missing_api", "summary": None},
+			"openai": {"enabled": False, "status": "missing_api", "summary": None},
 		}
 
 	monkeypatch.setattr(play_routes, "analyze_github_repo", fake_analyze)
@@ -55,7 +55,7 @@ def test_repo_analysis_returns_local_and_gemini_sections(monkeypatch) -> None:
 	payload = response.json()
 	assert payload["repo"]["name"] == "demo"
 	assert payload["local_analysis"]["recommended_replacement"] == "razorpay"
-	assert payload["gemini"]["status"] == "missing_api"
+	assert payload["openai"]["status"] == "missing_api"
 
 
 def test_repo_analysis_rejects_missing_url() -> None:

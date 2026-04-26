@@ -49,6 +49,18 @@ The system is built from five core pieces:
 - `server/llm_agents.py`: model-backed Lead and Auditor agents with role-specific prompts and deterministic or exploratory decoding profiles.
 - `server/training_data.py`: teacher-trace generation and chat-format SFT export pipeline.
 
+## Important Code Paths
+
+The benchmark is small enough that the critical logic lives in a few files, and those files map closely to the actual task being judged.
+
+- `server/environment.py`: owns reset/step, role alternation, observation masking, JSONL episode logging, and terminal-state transitions.
+- `server/rubric.py`: owns dense reward shaping. This is where format validity, pass penalties, approval correctness, patch syntax, approved-SDK usage, and parity-test reward are added up.
+- `server/verifier.py`: owns sandboxed execution. It replaces real SDK imports with local stubs, executes the submitted patch, and runs repo-specific parity tests against the declared entrypoint.
+- `server/play_routes.py`: owns the demo surface. It exposes `/play`, `/play/reset`, `/play/agent_step`, and the optional GitHub repo analysis support route.
+- `server/policy_runtime.py`: decides whether `baseline` and `trained` can be shown at all, based on runtime dependencies and GPU readiness.
+
+That division matters because it keeps the environment logic, reward logic, verifier logic, and UI wiring separate enough to inspect independently.
+
 ## Environment Flow
 
 ```text
@@ -153,6 +165,34 @@ Signals include:
 
 The verifier keeps the benchmark grounded. It stubs deprecated and sovereign SDK modules, executes submitted code, and checks behavior against repo-specific expected outputs. That is what makes the task more than prompt theater.
 
+### How Reward Actually Flows
+
+The control flow is intentionally simple and inspectable:
+
+1. `server/environment.py` validates turn order and applies the state mutation implied by the action.
+2. `server/rubric.py` scores the step with `score_step(...)`.
+3. If the Lead submitted a patch, `server/verifier.py` parses it, extracts imports, runs it in a sandbox with stubbed SDKs, and executes the repo parity tests.
+4. On episode end, `score_terminal(...)` adds terminal success or max-turn penalties.
+5. The environment returns both scalar reward and `reward_breakdown`, so the UI and logs show why the score moved.
+
+This matters for training because the agent gets learning signal before the terminal win condition. A pass-only reward would be too sparse for a seven-turn negotiation setting.
+
+### Reward Weights
+
+The current rubric weights in `server/rubric.py` are intentionally asymmetric:
+
+- light positive reward for valid structured actions
+- immediate penalty for malformed or wasted actions
+- positive reward when the Auditor correctly approves or rejects proposals against the allow-list
+- strong positive reward when submitted patches pass parity tests
+- terminal success bonus, plus an early-completion bonus for solving quickly
+
+That design pushes the policy toward disciplined turn-taking, correct allow-list reasoning, and executable patches instead of verbose but ungrounded discussion.
+
+### Why Reward Can Improve Before Pass Rate
+
+The April 26 run is a good example of the intended signal structure. Mean reward improved while pass rate stayed flat. That means the policy became more structured and less wasteful, but still failed at the last mile of fully correct patch generation. For this benchmark, that is still meaningful training evidence, because the reward function is exposing intermediate competence rather than only final success.
+
 ## Results Snapshot
 
 These numbers come from the April 26 hardened notebook run.
@@ -191,6 +231,7 @@ Honest interpretation: the fast run improved reward and made policy behavior mor
 - `server/`: environment, verifier, rubric, policy runtime, prompt, and demo routes.
 - `server/repos/`: scenario repos with metadata, broken code, and tests.
 - `frontend/play.html`: live negotiation UI.
+- `server/repo_analysis.py`: optional support-only GitHub repo analyzer with local heuristics plus OpenAI enrichment.
 - `notebooks/00_hardened_pipeline.ipynb`: full low-step training/eval pipeline.
 - `scripts/make_plots.py`: rebuild plot assets from saved eval JSON.
 - `tests/`: route, verifier, environment, model, repo, and runtime gating coverage.
@@ -230,6 +271,7 @@ uvicorn server.app:app --host 0.0.0.0 --port 8000
 - Docker deployment currently installs the base package by default.
 - Model-backed live modes require a GPU-ready runtime plus the training stack, especially `unsloth`.
 - The runtime gate in `server/policy_runtime.py` prevents the UI from advertising `baseline` or `trained` when those requirements are missing.
+- The optional GitHub repo analysis support uses the Hugging Face Space secret `OPENAI_API` when configured.
 - The published Space for this submission is `ishansurdi/SDK-Sovereign`, served at `https://ishansurdi-sdk-sovereign.hf.space`.
 
 ## Validation

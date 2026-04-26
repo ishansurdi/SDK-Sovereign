@@ -21,7 +21,7 @@ _SDK_HINTS = {
 
 @dataclass(frozen=True)
 class GitHubSnapshot:
-    """Small repo snapshot used for offline and Gemini-backed analysis."""
+    """Small repo snapshot used for offline and OpenAI-backed analysis."""
 
     owner: str
     repo: str
@@ -33,10 +33,10 @@ class GitHubSnapshot:
 
 
 def analyze_github_repo(repo_url: str) -> dict[str, Any]:
-    """Analyze a public GitHub repo and optionally enrich the result with Gemini."""
+    """Analyze a public GitHub repo and optionally enrich the result with OpenAI."""
     snapshot = fetch_github_snapshot(repo_url)
     local_analysis = build_local_analysis(snapshot)
-    gemini = generate_gemini_analysis(snapshot, local_analysis)
+    openai = generate_openai_analysis(snapshot, local_analysis)
     return {
         "repo": {
             "owner": snapshot.owner,
@@ -47,7 +47,7 @@ def analyze_github_repo(repo_url: str) -> dict[str, Any]:
             "top_level_files": snapshot.top_level_files,
         },
         "local_analysis": local_analysis,
-        "gemini": gemini,
+        "openai": openai,
     }
 
 
@@ -123,9 +123,9 @@ def build_local_analysis(snapshot: GitHubSnapshot) -> dict[str, Any]:
     }
 
 
-def generate_gemini_analysis(snapshot: GitHubSnapshot, local_analysis: dict[str, Any]) -> dict[str, Any]:
-    """Call Gemini when configured; otherwise return a disabled status."""
-    api_key = os.environ.get("GEMINI_API")
+def generate_openai_analysis(snapshot: GitHubSnapshot, local_analysis: dict[str, Any]) -> dict[str, Any]:
+    """Call OpenAI when configured; otherwise return a disabled status."""
+    api_key = os.environ.get("OPENAI_API")
     if not api_key:
         return {
             "enabled": False,
@@ -145,26 +145,38 @@ def generate_gemini_analysis(snapshot: GitHubSnapshot, local_analysis: dict[str,
         f"Local sovereign hint: {json.dumps(local_analysis)}"
     )
     body = {
-        "contents": [
+        "model": "gpt-4o-mini",
+        "input": [
             {
-                "parts": [
+                "role": "system",
+                "content": [
                     {
+                        "type": "input_text",
+                        "text": "You are a concise engineering analysis assistant.",
+                    }
+                ],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_text",
                         "text": prompt,
                     }
-                ]
+                ],
             }
-        ]
+        ],
+        "temperature": 0.2,
     }
-    encoded_key = parse.quote(api_key, safe="")
-    url = (
-        "https://generativelanguage.googleapis.com/v1beta/models/"
-        f"gemini-2.0-flash:generateContent?key={encoded_key}"
-    )
+    url = "https://api.openai.com/v1/responses"
     payload = json.dumps(body).encode("utf-8")
     request_obj = request.Request(
         url,
         data=payload,
-        headers={"Content-Type": "application/json"},
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        },
         method="POST",
     )
     try:
@@ -172,11 +184,11 @@ def generate_gemini_analysis(snapshot: GitHubSnapshot, local_analysis: dict[str,
             data = json.loads(response.read().decode("utf-8"))
     except error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace") if hasattr(exc, "read") else str(exc)
-        summary, status, code, retry_after_seconds = _summarize_gemini_error(detail)
+        summary, status, code, retry_after_seconds = _summarize_openai_error(detail)
         return {
             "enabled": True,
             "status": status,
-            "model": "gemini-2.0-flash",
+            "model": "gpt-4o-mini",
             "summary": summary,
             "code": code,
             "retry_after_seconds": retry_after_seconds,
@@ -185,15 +197,15 @@ def generate_gemini_analysis(snapshot: GitHubSnapshot, local_analysis: dict[str,
         return {
             "enabled": True,
             "status": "network_error",
-            "model": "gemini-2.0-flash",
+            "model": "gpt-4o-mini",
             "summary": str(exc.reason),
         }
 
-    summary = _extract_gemini_text(data)
+    summary = _extract_openai_text(data)
     return {
         "enabled": True,
         "status": "ok" if summary else "empty_response",
-        "model": "gemini-2.0-flash",
+        "model": "gpt-4o-mini",
         "summary": summary,
     }
 
@@ -224,42 +236,44 @@ def _github_json(url: str) -> Any:
         return json.loads(response.read().decode("utf-8"))
 
 
-def _extract_gemini_text(payload: dict[str, Any]) -> str | None:
-    """Pull the first text segment out of a Gemini generateContent payload."""
-    candidates = payload.get("candidates") or []
-    for candidate in candidates:
-        content = candidate.get("content") or {}
-        parts = content.get("parts") or []
-        texts = [part.get("text", "") for part in parts if isinstance(part, dict)]
+def _extract_openai_text(payload: dict[str, Any]) -> str | None:
+    """Pull the first text segment out of an OpenAI Responses payload."""
+    output = payload.get("output") or []
+    for item in output:
+        content = item.get("content") or []
+        texts = [part.get("text", "") for part in content if isinstance(part, dict)]
         merged = "\n".join(text for text in texts if text).strip()
         if merged:
             return merged
+    text = payload.get("output_text")
+    if isinstance(text, str) and text.strip():
+        return text.strip()
     return None
 
 
-def _summarize_gemini_error(detail: str) -> tuple[str, str, int | None, float | None]:
-    """Collapse verbose Gemini API errors into compact UI-friendly status text."""
+def _summarize_openai_error(detail: str) -> tuple[str, str, int | None, float | None]:
+    """Collapse verbose OpenAI API errors into compact UI-friendly status text."""
     normalized = re.sub(r"\s+", " ", detail).strip()
     try:
         payload = json.loads(detail)
     except json.JSONDecodeError:
-        return normalized[:280] or "Gemini request failed.", "http_error", None, None
+        return normalized[:280] or "OpenAI request failed.", "http_error", None, None
 
     error_payload = payload.get("error") or {}
-    status = str(error_payload.get("status") or "http_error").lower()
+    status = str(error_payload.get("type") or error_payload.get("status") or "http_error").lower()
     code = error_payload.get("code")
     message = re.sub(r"\s+", " ", str(error_payload.get("message") or "")).strip()
-    retry_match = re.search(r"Please retry in ([0-9.]+)s", message)
+    retry_match = re.search(r"([0-9.]+)s", message)
     retry_after_seconds = float(retry_match.group(1)) if retry_match else None
 
-    if status == "resource_exhausted" or "quota exceeded" in message.lower():
-        summary = "Gemini quota exceeded for the configured GEMINI_API secret. Check billing/quota or retry later."
+    if status in {"insufficient_quota", "rate_limit_exceeded"} or "quota" in message.lower():
+        summary = "OpenAI quota exceeded for the configured OPENAI_API secret. Check billing/quota or retry later."
         if retry_after_seconds is not None:
             summary += f" Suggested retry: about {retry_after_seconds:.0f}s."
         return summary, status, code if isinstance(code, int) else None, retry_after_seconds
 
     if message:
-        trimmed = message.split("For more information", 1)[0].strip()
+        trimmed = message.split("Please", 1)[0].strip()
         return trimmed[:280], status, code if isinstance(code, int) else None, retry_after_seconds
 
-    return normalized[:280] or "Gemini request failed.", status, code if isinstance(code, int) else None, retry_after_seconds
+    return normalized[:280] or "OpenAI request failed.", status, code if isinstance(code, int) else None, retry_after_seconds
