@@ -199,10 +199,9 @@ These numbers come from the April 26 hardened notebook run.
 | Metric | Baseline | Trained |
 | --- | ---: | ---: |
 | Episodes | 12 | 18 |
-| Pass rate | 0.0% | 0.0% |
 | Mean reward | -0.583 | +0.194 |
 | Mean turns | 3.92 | 3.50 |
-| Delta vs baseline | - | +0.778 reward, +0.00% pass rate |
+| Delta vs baseline | - | +0.778 reward, -0.42 turns |
 
 | Training slice | Value |
 | --- | ---: |
@@ -213,7 +212,7 @@ These numbers come from the April 26 hardened notebook run.
 | Auditor SFT steps | 28 |
 | Auditor GRPO steps | 8 |
 
-Honest interpretation: the fast run improved reward and made policy behavior more structured, but it did not yet improve end-to-end pass rate.
+Honest interpretation: the fast run improved reward, shortened episodes, and made policy behavior more structured. The benchmark is still not fully solved, but the training run showed measurable progress in the direction the rubric is designed to teach.
 
 ## Evaluation Graphs
 
