@@ -224,6 +224,41 @@
 		gap: 10px;
 	}
 
+	.support-card {
+		margin-top: 18px;
+		padding: 18px;
+		border-radius: 18px;
+		background: rgba(31, 27, 22, 0.04);
+		border: 1px solid rgba(31, 27, 22, 0.08);
+	}
+
+	.support-card h2 {
+		margin: 0 0 8px;
+		font-size: 1.05rem;
+	}
+
+	.support-card p {
+		margin: 0;
+		color: var(--muted);
+		line-height: 1.5;
+	}
+
+	.support-output {
+		margin-top: 12px;
+		display: grid;
+		gap: 10px;
+	}
+
+	input[type="url"] {
+		min-height: 46px;
+		padding: 0 14px;
+		border-radius: 14px;
+		border: 1px solid rgba(31, 27, 22, 0.12);
+		font: inherit;
+		background: #fff;
+		color: var(--ink);
+	}
+
 	.pill {
 		display: inline-block;
 		padding: 4px 8px;
@@ -273,6 +308,20 @@
 			<div id="meta" class="meta"></div>
 			<div id="configCard" class="config-card"></div>
 			<div id="issueCard" class="issue-card"></div>
+			<div class="support-card">
+				<p style="margin:0; text-transform:uppercase; letter-spacing:0.18em; color:var(--muted); font-size:0.72rem;">Optional support</p>
+				<h2>GitHub Repo Analysis</h2>
+				<p>Paste a public GitHub repo URL to get a local sovereign recommendation, with Gemini enrichment when the Space secret <strong>GEMINI_API</strong> is configured. This is a support tool, not the main benchmark path.</p>
+				<div class="controls">
+					<label>
+						GitHub repo URL
+						<input id="repoUrl" type="url" placeholder="https://github.com/owner/repo">
+					</label>
+					<button id="analyzeRepo" type="button">Analyze Repo</button>
+				</div>
+				<div id="repoSupportStatus" class="status"></div>
+				<div id="repoSupportOutput" class="support-output"></div>
+			</div>
 		</div>
 
 		<div class="panel">
@@ -296,6 +345,10 @@ const status = document.getElementById("status");
 const meta = document.getElementById("meta");
 const configCard = document.getElementById("configCard");
 const issueCard = document.getElementById("issueCard");
+const repoUrlInput = document.getElementById("repoUrl");
+const analyzeRepoButton = document.getElementById("analyzeRepo");
+const repoSupportStatus = document.getElementById("repoSupportStatus");
+const repoSupportOutput = document.getElementById("repoSupportOutput");
 
 bootstrap();
 
@@ -341,6 +394,27 @@ runButton.addEventListener("click", async () => {
 		status.textContent = `Run failed: ${error.message || error}`;
 	} finally {
 		runButton.disabled = false;
+	}
+});
+
+analyzeRepoButton.addEventListener("click", async () => {
+	analyzeRepoButton.disabled = true;
+	repoSupportOutput.innerHTML = "";
+	try {
+		const repoUrl = repoUrlInput.value.trim();
+		if (!repoUrl) {
+			throw new Error("Enter a public GitHub repository URL.");
+		}
+		repoSupportStatus.textContent = "Analyzing repository...";
+		const analysis = await postJson(`${base}/play/repo_analysis`, { repo_url: repoUrl });
+		renderRepoSupport(analysis);
+		repoSupportStatus.textContent = analysis.gemini && analysis.gemini.enabled
+			? "Analysis complete. Gemini support response included."
+			: "Analysis complete. Gemini support is optional and currently unavailable.";
+	} catch (error) {
+		repoSupportStatus.textContent = `Support analysis failed: ${error.message || error}`;
+	} finally {
+		analyzeRepoButton.disabled = false;
 	}
 });
 
@@ -457,6 +531,23 @@ function renderDiagnostics(diagnostics) {
 	`;
 }
 
+function renderRepoSupport(analysis) {
+	const findings = (analysis.local_analysis?.findings || []).map((item) => (
+		`<div>${escapeHtml(item)}</div>`
+	)).join("");
+	const geminiSummary = analysis.gemini?.summary
+		? `<pre>${escapeHtml(analysis.gemini.summary)}</pre>`
+		: `<div>${escapeHtml(analysis.gemini?.enabled ? "Gemini returned no text." : "Gemini support is disabled until GEMINI_API is set in the Space secrets.")}</div>`;
+	repoSupportOutput.innerHTML = `
+		<div><strong>Repository</strong><br>${escapeHtml(analysis.repo?.url || "unknown")}</div>
+		<div><strong>Detected SDK</strong><br>${escapeHtml(analysis.local_analysis?.detected_sdk || "none detected")}</div>
+		<div><strong>Sovereign recommendation</strong><br>${escapeHtml(analysis.local_analysis?.recommended_replacement || "manual review needed")}</div>
+		<div><strong>Next action</strong><br>${escapeHtml(analysis.local_analysis?.next_action || "none")}</div>
+		<div><strong>Local findings</strong><div class="details">${findings || "<div>No local findings.</div>"}</div></div>
+		<div><strong>Gemini support</strong><br>${geminiSummary}</div>
+	`;
+}
+
 function setAgentMode(mode) {
 	const labels = {
 		rule: "Rule fallback · verifier-backed",
@@ -467,8 +558,13 @@ function setAgentMode(mode) {
 	agentMode.textContent = labels[mode] || mode;
 }
 
-async function postJson(url) {
-	const response = await fetch(url, { method: "POST" });
+async function postJson(url, body = undefined) {
+	const options = { method: "POST" };
+	if (body !== undefined) {
+		options.headers = { "Content-Type": "application/json" };
+		options.body = JSON.stringify(body);
+	}
+	const response = await fetch(url, options);
 	if (!response.ok) {
 		throw new Error(await response.text());
 	}

@@ -16,6 +16,7 @@ from server.policy_runtime import (
     load_teacher_agents,
     mode_diagnostics,
 )
+from server.repo_analysis import analyze_github_repo
 
 
 _AGENT_CACHE: dict[str, PolicyMap] = {}
@@ -201,3 +202,16 @@ def register_play_routes(app: Any, env: Any) -> None:
             "transcript_entry": _build_transcript_entry(play_env, action, new_observation),
             "agent_mode": _agent_mode(),
         }
+
+    @app.post("/play/repo_analysis")
+    def play_repo_analysis(payload: dict[str, Any]) -> dict[str, Any]:
+        repo_url = str(payload.get("repo_url") or "").strip()
+        if not repo_url:
+            raise HTTPException(status_code=400, detail="repo_url is required")
+        try:
+            analysis = analyze_github_repo(repo_url)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        return analysis
