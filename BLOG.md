@@ -6,23 +6,31 @@ I had an idea for a multi-agent environment. I built it. I trained two role-spec
 
 That is not what happened.
 
-What actually happened is that I started with a feeling I could not shake: most AI demos did not feel real to me. They looked clean, but they did not feel like engineering. They felt like controlled theater. A neat benchmark, a neat output, a neat graph, and then nothing underneath that really carried the weight of a real operational problem.
+SDK-Sovereign came from a feeling I could not shake: most AI demos did not feel real to me. They looked neat, but they did not feel like engineering. They felt like controlled theater. A benchmark, an output, a graph, and then nothing underneath that really carried the weight of a real operational problem.
 
-I wanted to build something that felt closer to the kind of panic an actual team might face.
+I wanted to build something that felt closer to panic.
 
-The idea that kept pulling me back was this: what if an engineering team woke up one day and a core SDK they depended on was suddenly no longer acceptable? Not as a hypothetical policy discussion, but as a direct product problem. Payments break. Maps break. Messaging breaks. You still have users. You still have deadlines. You still have to ship. And the people involved do not all get to see the whole system.
+The idea that kept pulling me back was this: what if an engineering team woke up one day and a core SDK they depended on was suddenly no longer acceptable? Not as a policy debate. As a direct product problem. Payments break. Maps break. Messaging breaks. Users are still there. Deadlines are still there. You still have to ship. And the people involved do not all get to see the whole system.
 
 That was the seed of SDK-Sovereign.
 
+If you want the short version of what is actually in the project, it is this:
+
+- a live Hugging Face Space demo
+- an OpenEnv environment with two asymmetric roles
+- a hardened Colab notebook using Unsloth and TRL
+- real reward and loss plots from an actual run
+- a README that explains the environment, the reward logic, and the results honestly
+
 From the beginning, I did not want one magical agent with perfect information. That felt dishonest. Real systems are full of boundaries. Real teams are full of partial visibility. So I split the task into two roles.
 
-I made one role the Integration Lead. The Lead can see the code and the error log, because that person is the one trying to make the system work again.
+The Integration Lead can see the code and the error log, because that person is trying to make the system work again.
 
-I made the other role the Security Auditor. The Auditor can see the sovereign allow-list and the negotiation history, but not the code, because that person is the one protecting constraints the implementer might be tempted to ignore.
+The Security Auditor can see the sovereign allow-list and the negotiation history, but not the code, because that person is protecting constraints the implementer might be tempted to ignore.
 
 That split ended up being the heart of the project. Not the model choice, not the UI, not the notebook. That asymmetry. That feeling that neither side is powerful enough on its own, and that coordination under incomplete information is the actual task.
 
-At the ideation stage, this all felt very sharp in my head. In the repo, it was much blurrier.
+At the ideation stage, this all felt sharp in my head. In the repo, it was much blurrier.
 
 I had the concept before I had the shape. I knew what I wanted it to feel like, but not yet how to make every piece reinforce that feeling. That became the pattern for most of this project. I was not just coding features. I was constantly trying to align the environment, the verifier, the training loop, the demo, and the write-up so they all told the same truth.
 
@@ -56,7 +64,7 @@ I pushed the pipeline toward something more practical and more honest about the 
 
 At some point the goal quietly changed from “train a great model” to “if this runtime dies in twenty minutes, what proof do I still have?”
 
-That shift sounds small, but it completely changed how I thought about the project. I realized that in a hackathon setting, persistence is not a side feature. It is part of the work. If the results disappear when the GPU goes away, then the project is much less real than it looks.
+That shift sounds small, but it completely changed how I thought about the project. In a hackathon setting, persistence is not a side feature. It is part of the work. If the results disappear when the GPU goes away, then the project is much less real than it looks.
 
 And the GPU did fight back.
 
@@ -72,9 +80,18 @@ I got the system to train. I got the adapters saved. I got the logs, plots, and 
 
 That matters a lot to me.
 
-Because I did not want to write a fake success story. I wanted to build something I could look at directly, even if the answer was inconvenient. And the inconvenient answer here is that the project clearly moved forward, but it did not magically become solved. The trained agents started showing more structure. The reward improved. The pipeline became much more real. But the full end-to-end benchmark still resisted being cracked cleanly.
+Because I did not want to write a fake success story. I wanted to build something I could look at directly, even if the answer was inconvenient.
 
-Oddly, that made me trust the project more.
+The inconvenient answer is that the project clearly moved forward, but it did not magically become solved.
+
+## What Actually Improved
+
+- Mean reward moved from `-0.583` to `+0.194`
+- Pass rate stayed at `0.0%`
+- The trained agents became more structured, but not yet reliably successful end to end
+- The pipeline became much more robust, inspectable, and reproducible
+
+That combination is awkward, but I trust it more than a fake clean win.
 
 If everything had worked immediately, this would have become another polished AI artifact that says all the right words and leaves no room for doubt. But doubt is part of this build. Resistance is part of this build. I kept having to ask myself what exactly I was proving, whether the metrics actually meant what I wanted them to mean, and whether I was improving the system or just improving its presentation.
 
@@ -94,4 +111,13 @@ I still love the core instinct behind it. I still think this is where more inter
 
 What I have right now is not perfect. It still needs better curriculum, stronger completion behavior, and training signal that maps more directly to success. But it feels real now. It feels like something that has been wrestled into shape instead of merely assembled.
 
-And honestly, that is the part I am most proud of.
+That is the part I am most proud of.
+
+And if I kept building from here, that is what I would push next: stronger completion behavior, better curriculum design, and reward shaping that closes the gap between “more structured” and “actually solved.”
+
+## Where To Look
+
+- Space: [ishansurdi/SDK-Sovereign](https://huggingface.co/spaces/ishansurdi/SDK-Sovereign)
+- Live demo: [ishansurdi-sdk-sovereign.hf.space/play](https://ishansurdi-sdk-sovereign.hf.space/play)
+- README: ./README.md
+- Training notebook: ./notebooks/00_hardened_pipeline.ipynb

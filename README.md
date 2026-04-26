@@ -23,8 +23,7 @@ SDK-Sovereign is a multi-agent OpenEnv environment built around that crisis. It 
 - Hugging Face Space: [ishansurdi/SDK-Sovereign](https://huggingface.co/spaces/ishansurdi/SDK-Sovereign)
 - Live environment URL: [ishansurdi-sdk-sovereign.hf.space](https://ishansurdi-sdk-sovereign.hf.space)
 - Live `/play` demo: [ishansurdi-sdk-sovereign.hf.space/play](https://ishansurdi-sdk-sovereign.hf.space/play)
-- Mini-blog writeup: [docs/HF_BLOG.md](docs/HF_BLOG.md)
-- Narrative project writeup: [BLOG.md](BLOG.md)
+- Blog writeup: [BLOG.md](BLOG.md)
 - Training notebook: [notebooks/00_hardened_pipeline.ipynb](notebooks/00_hardened_pipeline.ipynb)
 
 These are the main links judges need to discover, run, and inspect the environment submission.
